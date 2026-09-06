@@ -1,10 +1,10 @@
-import { useRef } from "react";
+import React, { useRef } from "react";
 import { tomCategoryMeta } from "./tomConstants";
 
 // Reuses the project card's 3D tilt feel via plain CSS hover (kept dependency-free
 // here; App.jsx's useTilt hook is intentionally not imported to avoid coupling
 // this module back to App.jsx internals).
-export default function MechanismCard({ mechanism, mediaCount, onView }) {
+function MechanismCard({ mechanism, mediaCount, onView }) {
   const meta = tomCategoryMeta(mechanism.category);
   const cardRef = useRef(null);
 
@@ -16,7 +16,7 @@ export default function MechanismCard({ mechanism, mediaCount, onView }) {
     >
       <div className="tom-card__media">
         {mechanism.cover_image ? (
-          <img className="tom-card__image" src={mechanism.cover_image} alt={mechanism.name} />
+          <img className="tom-card__image" src={mechanism.cover_image} alt={mechanism.name} loading="lazy" />
         ) : (
           <div className="tom-card__fallback" aria-hidden="true">{meta.icon}</div>
         )}
@@ -55,3 +55,5 @@ export default function MechanismCard({ mechanism, mediaCount, onView }) {
     </article>
   );
 }
+
+export default React.memo(MechanismCard);

@@ -22,6 +22,27 @@
   --ease-in-back: cubic-bezier(0.36, 0, 0.66, -0.56);
 }
 
+/* ─── FOCUS STATES (KEYBOARD NAVIGATION) ─────────────────────────────────── */
+:focus {
+  outline: none;
+}
+
+:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+
+button:focus-visible, a:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+input:focus-visible, textarea:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+
 /* ─── RESET & BASE ────────────────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; }
 
@@ -480,6 +501,41 @@ body {
   min-height: 120px;
   padding: 14px;
   resize: vertical;
+}
+
+/* ─── FORM ERROR STATES ──────────────────────────────────────────────────── */
+.field__control--error {
+  border-color: rgba(239, 68, 68, 0.44);
+  background: rgba(239, 68, 68, 0.06);
+  box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.08);
+}
+
+.field__control--error:focus {
+  border-color: rgba(239, 68, 68, 0.6);
+  box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.12), 0 0 20px rgba(239,68,68,0.08);
+  background: rgba(239, 68, 68, 0.08);
+}
+
+.field__error {
+  display: block;
+  color: #fca5a5;
+  font: 500 0.76rem/1.4 var(--font-body);
+  margin-top: 4px;
+}
+
+.form-message {
+  padding: 12px 16px;
+  border-radius: 12px;
+  font: 500 0.88rem/1.4 var(--font-body);
+  display: flex;
+  align-items: center;
+  animation: slideDown 0.3s var(--ease-out-expo) both;
+}
+
+.form-message--error {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #fca5a5;
 }
 
 .project-form__footer {

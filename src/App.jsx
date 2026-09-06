@@ -79,6 +79,11 @@ export default function App() {
 
   function handleLogin() {
     setLoginError("");
+    if (!ADMIN_PASSWORD) {
+      setLoginError("Admin password is not configured");
+      setLoginPassword("");
+      return;
+    }
     if (loginPassword === ADMIN_PASSWORD) {
       localStorage.setItem(ADMIN_KEY, "true");
       setIsAdmin(true);

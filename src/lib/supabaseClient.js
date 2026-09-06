@@ -16,4 +16,4 @@ export const supabase = isSupabaseConfigured
 // ─── SHARED ADMIN CONSTANTS ───────────────────────────────────────────────────
 // Same client-side admin-flag scheme the TOM showcase has used throughout.
 export const ADMIN_KEY      = "tom_admin_token";
-export const ADMIN_PASSWORD = "Krish8852";
+export const ADMIN_PASSWORD = import.meta.env.VITE_ADMIN_PASSWORD || "";

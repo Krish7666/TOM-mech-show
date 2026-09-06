@@ -15,10 +15,39 @@ const FILE_SLOTS = [
 export default function MechanismForm({ onCancel, onSubmit, submitting, formError }) {
   const [form, setForm] = useState(EMPTY_MECHANISM_FORM);
   const [files, setFiles] = useState({});
+  const [fieldErrors, setFieldErrors] = useState({});
+
+  function validateField(name, value) {
+    const errors = {};
+    if (name === "name" && !value.trim()) {
+      errors.name = "Mechanism name is required";
+    }
+    if (name === "category" && !value.trim()) {
+      errors.category = "Please select a category";
+    }
+    if (name === "student_name" && !value.trim()) {
+      errors.student_name = "Student name is required";
+    }
+    if (name === "video_url" && value && !isValidUrl(value)) {
+      errors.video_url = "Please enter a valid YouTube embed URL";
+    }
+    return errors;
+  }
+
+  function isValidUrl(string) {
+    try {
+      new URL(string);
+      return true;
+    } catch {
+      return false;
+    }
+  }
 
   function handleChange(e) {
     const { name, value } = e.target;
     setForm((cur) => ({ ...cur, [name]: value }));
+    const errors = validateField(name, value);
+    setFieldErrors((cur) => ({ ...cur, ...errors }));
   }
 
   function handleFileChange(slot, fileList) {
@@ -27,11 +56,23 @@ export default function MechanismForm({ onCancel, onSubmit, submitting, formErro
 
   function handleSubmit(e) {
     e.preventDefault();
+    
+    // Validate required fields
+    const errors = {};
+    if (!form.name.trim()) errors.name = "Mechanism name is required";
+    if (!form.category.trim()) errors.category = "Please select a category";
+    if (!form.student_name.trim()) errors.student_name = "Student name is required";
+    
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      return;
+    }
+    
     onSubmit(form, files);
   }
 
   return (
-    <form className="project-form tom-form" onSubmit={handleSubmit}>
+    <form className="project-form tom-form" onSubmit={handleSubmit} id="mechanism-form">
       <div className="project-form__header">
         <div>
           <p className="project-form__eyebrow">TOM Mechanism Showcase</p>
@@ -46,18 +87,22 @@ export default function MechanismForm({ onCancel, onSubmit, submitting, formErro
       <h3 className="tom-form__section-title">Basic Information</h3>
       <div className="project-form__grid">
         <label className="field">
-          <span className="field__label">Mechanism Name *</span>
-          <input className="field__control" name="name" placeholder="Four Bar Mechanism"
-            value={form.name} onChange={handleChange} required />
+          <span className="field__label">Mechanism Name <span style={{ color: "var(--danger)" }}>*</span></span>
+          <input className={`field__control${fieldErrors.name ? " field__control--error" : ""}`}
+            name="name" placeholder="Four Bar Mechanism"
+            value={form.name} onChange={handleChange} required aria-invalid={!!fieldErrors.name} aria-describedby={fieldErrors.name ? "error-name" : undefined} />
+          {fieldErrors.name && <span id="error-name" className="field__error">{fieldErrors.name}</span>}
         </label>
 
         <label className="field">
-          <span className="field__label">Category *</span>
-          <input className="field__control" name="category" list="tom-category-suggestions"
-            placeholder="Four-bar, Cam mechanisms..." value={form.category} onChange={handleChange} required />
+          <span className="field__label">Category <span style={{ color: "var(--danger)" }}>*</span></span>
+          <input className={`field__control${fieldErrors.category ? " field__control--error" : ""}`}
+            name="category" list="tom-category-suggestions"
+            placeholder="Four-bar, Cam mechanisms..." value={form.category} onChange={handleChange} required aria-invalid={!!fieldErrors.category} aria-describedby={fieldErrors.category ? "error-category" : undefined} />
           <datalist id="tom-category-suggestions">
             {TOM_CATEGORIES.map((c) => <option key={c} value={c} />)}
           </datalist>
+          {fieldErrors.category && <span id="error-category" className="field__error">{fieldErrors.category}</span>}
         </label>
 
         <label className="field field--wide">
@@ -177,9 +222,11 @@ export default function MechanismForm({ onCancel, onSubmit, submitting, formErro
       <h3 className="tom-form__section-title">Student Information</h3>
       <div className="project-form__grid">
         <label className="field">
-          <span className="field__label">Student Name *</span>
-          <input className="field__control" name="student_name"
-            value={form.student_name} onChange={handleChange} required />
+          <span className="field__label">Student Name <span style={{ color: "var(--danger)" }}>*</span></span>
+          <input className={`field__control${fieldErrors.student_name ? " field__control--error" : ""}`}
+            name="student_name"
+            value={form.student_name} onChange={handleChange} required aria-invalid={!!fieldErrors.student_name} aria-describedby={fieldErrors.student_name ? "error-student" : undefined} />
+          {fieldErrors.student_name && <span id="error-student" className="field__error">{fieldErrors.student_name}</span>}
         </label>
         <label className="field">
           <span className="field__label">Team Members</span>
@@ -230,7 +277,12 @@ export default function MechanismForm({ onCancel, onSubmit, submitting, formErro
       </div>
 
       <div className="project-form__footer">
-        <div className="project-form__message" role="status" aria-live="polite">{formError}</div>
+        {(formError || Object.keys(fieldErrors).length > 0) && (
+          <div className="form-message form-message--error" role="alert">
+            <span style={{ marginRight: 8 }}>⚠️</span>
+            {formError || `Please fix ${Object.keys(fieldErrors).length} field(s) above`}
+          </div>
+        )}
         <div className="project-form__actions">
           <button type="button" className="button button--ghost" onClick={onCancel} disabled={submitting}>
             Cancel
