@@ -1,262 +1,320 @@
 import { useState } from "react";
-import { EMPTY_MECHANISM_FORM, TOM_CATEGORIES, ACCEPT, MECHANISM_TYPE_SUGGESTIONS } from "./tomConstants";
-import { suggestAnimationDescription } from "./tomKinematics";
+import { EMPTY_MECHANISM_FORM, TOM_CATEGORIES, ACCEPT } from "./tomConstants";
+import { calculateDof } from "./kinematics.js";
 
 const FILE_SLOTS = [
-  { key: "image",     label: "Mechanism Images",        hint: "Photos of the built/CAD model" },
-  { key: "drawing",   label: "Engineering Drawings",     hint: "Orthographic / dimensioned views" },
-  { key: "video",     label: "Working Video",            hint: "Mechanism in motion" },
-  { key: "animation", label: "Animation / Simulation",   hint: "GIF or rendered animation" },
-  { key: "cad",       label: "CAD Files",                hint: "STEP, DWG, SLDPRT, STL, etc." },
-  { key: "document",  label: "PDFs / Documentation",     hint: "Report, datasheet, references" },
-  { key: "other",     label: "Other Supporting Files",   hint: "Anything else worth attaching" },
+  { key: "image",    label: "Photo / CAD Render",       hint: "Image of prototype, CAD screenshot, or drawing" },
+  { key: "video",    label: "Demonstration Video",      hint: "Short video clip showing motion" },
+  { key: "document", label: "Project Report / CAD File", hint: "PDF synopsis, datasheet, or 3D CAD/STEP file" },
 ];
 
 export default function MechanismForm({ onCancel, onSubmit, submitting, formError }) {
   const [form, setForm] = useState(EMPTY_MECHANISM_FORM);
   const [files, setFiles] = useState({});
-  const [fieldErrors, setFieldErrors] = useState({});
-
-  function validateField(name, value) {
-    const errors = {};
-    if (name === "name" && !value.trim()) {
-      errors.name = "Mechanism name is required";
-    }
-    if (name === "category" && !value.trim()) {
-      errors.category = "Please select a category";
-    }
-    if (name === "student_name" && !value.trim()) {
-      errors.student_name = "Student name is required";
-    }
-    if (name === "video_url" && value && !isValidUrl(value)) {
-      errors.video_url = "Please enter a valid YouTube embed URL";
-    }
-    return errors;
-  }
-
-  function isValidUrl(string) {
-    try {
-      new URL(string);
-      return true;
-    } catch {
-      return false;
-    }
-  }
+  const [imagePreview, setImagePreview] = useState("");
+  const [imageUrlInput, setImageUrlInput] = useState("");
 
   function handleChange(e) {
     const { name, value } = e.target;
     setForm((cur) => ({ ...cur, [name]: value }));
-    const errors = validateField(name, value);
-    setFieldErrors((cur) => ({ ...cur, ...errors }));
   }
 
   function handleFileChange(slot, fileList) {
     setFiles((cur) => ({ ...cur, [slot]: fileList }));
+
+    if ((slot === "image" || slot === "drawing") && fileList && fileList[0]) {
+      const file = fileList[0];
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const rawData = e.target.result;
+        if (typeof window === "undefined" || !window.Image) {
+          setImagePreview(rawData);
+          return;
+        }
+        const img = new Image();
+        img.onload = () => {
+          const maxWidth = 800;
+          const maxHeight = 600;
+          let { width, height } = img;
+          if (width > maxWidth) {
+            height = Math.round((height * maxWidth) / width);
+            width = maxWidth;
+          }
+          if (height > maxHeight) {
+            width = Math.round((width * maxHeight) / height);
+            height = maxHeight;
+          }
+          const canvas = document.createElement("canvas");
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext("2d");
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, width, height);
+            setImagePreview(canvas.toDataURL("image/jpeg", 0.82));
+          } else {
+            setImagePreview(rawData);
+          }
+        };
+        img.onerror = () => setImagePreview(rawData);
+        img.src = rawData;
+      };
+      reader.readAsDataURL(file);
+    }
   }
+
+  function handleUrlChange(e) {
+    const val = e.target.value;
+    setImageUrlInput(val);
+    if (val.trim()) {
+      setImagePreview(val.trim());
+    }
+  }
+
+  const links = Number(form.num_links) || 0;
+  const joints = Number(form.num_joints) || 0;
+  const higherPairs = Number(form.higher_pairs) || 0;
+  const dofCalc = calculateDof({ links, joints, higherPairs });
+  const dof = dofCalc.result;
 
   function handleSubmit(e) {
     e.preventDefault();
-    
-    // Validate required fields
-    const errors = {};
-    if (!form.name.trim()) errors.name = "Mechanism name is required";
-    if (!form.category.trim()) errors.category = "Please select a category";
-    if (!form.student_name.trim()) errors.student_name = "Student name is required";
-    
-    if (Object.keys(errors).length > 0) {
-      setFieldErrors(errors);
-      return;
-    }
-    
-    onSubmit(form, files);
+    const finalCover = imagePreview || imageUrlInput.trim() || null;
+    const payload = {
+      ...form,
+      student_name: form.student_name.trim(),
+      team_members: form.student_name.trim(),
+      short_description: form.description
+        ? (form.description.slice(0, 140) + (form.description.length > 140 ? "..." : ""))
+        : "",
+      detailed_description: form.description || "",
+      working_principle: form.description || "",
+      num_links: links || null,
+      num_joints: joints || null,
+      degrees_of_freedom: dof,
+      external_links: form.video_url ? [form.video_url.trim()] : [],
+      college: "NMIET",
+      department: "Mechanical Engineering",
+      cover_image: finalCover,
+    };
+    onSubmit(payload, files);
   }
 
   return (
-    <form className="project-form tom-form" onSubmit={handleSubmit} id="mechanism-form">
+    <form className="project-form tom-form" onSubmit={handleSubmit}>
       <div className="project-form__header">
         <div>
-          <p className="project-form__eyebrow">TOM Mechanism Showcase</p>
+          <p className="project-form__eyebrow">TOM Mechanism Showcase · NMIET</p>
           <h2 className="project-form__title">Add Your Mechanism</h2>
         </div>
         <p className="project-form__hint">
-          Submissions go to admin review before appearing in the public showcase.
+          Quick submission for NMIET Mechanical Engineering students.
         </p>
       </div>
 
-      {/* ── BASIC INFORMATION ─────────────────────────────────────────── */}
-      <h3 className="tom-form__section-title">Basic Information</h3>
+      <h3 className="tom-form__section-title">1. Basic Details</h3>
       <div className="project-form__grid">
         <label className="field">
-          <span className="field__label">Mechanism Name <span style={{ color: "var(--danger)" }}>*</span></span>
-          <input className={`field__control${fieldErrors.name ? " field__control--error" : ""}`}
-            name="name" placeholder="Four Bar Mechanism"
-            value={form.name} onChange={handleChange} required aria-invalid={!!fieldErrors.name} aria-describedby={fieldErrors.name ? "error-name" : undefined} />
-          {fieldErrors.name && <span id="error-name" className="field__error">{fieldErrors.name}</span>}
+          <span className="field__label">Mechanism Name *</span>
+          <input
+            className="field__control"
+            name="name"
+            placeholder="e.g. Four-Bar Linkage / Whitworth Quick Return"
+            value={form.name}
+            onChange={handleChange}
+            required
+          />
         </label>
 
         <label className="field">
-          <span className="field__label">Category <span style={{ color: "var(--danger)" }}>*</span></span>
-          <input className={`field__control${fieldErrors.category ? " field__control--error" : ""}`}
-            name="category" list="tom-category-suggestions"
-            placeholder="Four-bar, Cam mechanisms..." value={form.category} onChange={handleChange} required aria-invalid={!!fieldErrors.category} aria-describedby={fieldErrors.category ? "error-category" : undefined} />
-          <datalist id="tom-category-suggestions">
-            {TOM_CATEGORIES.map((c) => <option key={c} value={c} />)}
-          </datalist>
-          {fieldErrors.category && <span id="error-category" className="field__error">{fieldErrors.category}</span>}
+          <span className="field__label">Category *</span>
+          <select
+            className="field__control"
+            name="category"
+            value={form.category}
+            onChange={handleChange}
+            required
+          >
+            {TOM_CATEGORIES.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
         </label>
 
-        <label className="field field--wide">
-          <span className="field__label">Short Description</span>
-          <textarea className="field__control field__control--textarea" name="short_description" rows={2}
-            placeholder="One or two lines for the mechanism card." value={form.short_description} onChange={handleChange} />
-        </label>
-
-        <label className="field field--wide">
-          <span className="field__label">Detailed Description</span>
-          <textarea className="field__control field__control--textarea" name="detailed_description" rows={4}
-            placeholder="Full explanation for the showcase page." value={form.detailed_description} onChange={handleChange} />
-        </label>
-
-        <label className="field field--wide">
-          <span className="field__label">Working Principle</span>
-          <textarea className="field__control field__control--textarea" name="working_principle" rows={3}
-            value={form.working_principle} onChange={handleChange} />
-        </label>
-
-        <label className="field field--wide">
-          <span className="field__label">Applications</span>
-          <textarea className="field__control field__control--textarea" name="applications" rows={2}
-            value={form.applications} onChange={handleChange} />
+        <label className="field field--wide" style={{ gridColumn: "1 / -1" }}>
+          <span className="field__label">Mechanism Description &amp; Working Principle</span>
+          <textarea
+            className="field__control field__control--textarea"
+            name="description"
+            rows={3}
+            placeholder="Explain what the mechanism does, how it transforms motion, and its key practical applications..."
+            value={form.description}
+            onChange={handleChange}
+          />
         </label>
       </div>
 
-      {/* ── TECHNICAL INFORMATION ─────────────────────────────────────── */}
-      <h3 className="tom-form__section-title">Technical Information</h3>
+      <h3 className="tom-form__section-title">2. Kinematic Mobility</h3>
       <div className="project-form__grid">
         <label className="field">
-          <span className="field__label">Number of Links</span>
-          <input className="field__control" name="num_links" type="number" min="0"
-            value={form.num_links} onChange={handleChange} />
+          <span className="field__label">Number of Links (L)</span>
+          <input
+            className="field__control"
+            name="num_links"
+            type="number"
+            min="1"
+            value={form.num_links}
+            onChange={handleChange}
+          />
         </label>
+
         <label className="field">
-          <span className="field__label">Number of Joints</span>
-          <input className="field__control" name="num_joints" type="number" min="0"
-            value={form.num_joints} onChange={handleChange} />
+          <span className="field__label">Lower Pairs / Joints (J)</span>
+          <input
+            className="field__control"
+            name="num_joints"
+            type="number"
+            min="0"
+            value={form.num_joints}
+            onChange={handleChange}
+          />
         </label>
+
         <label className="field">
           <span className="field__label">Higher Pairs (H)</span>
-          <input className="field__control" name="num_higher_pairs" type="number" min="0"
-            value={form.num_higher_pairs} onChange={handleChange} />
-          <span className="field__hint">Used by the live DOF calculator (Grubler's equation).</span>
+          <input
+            className="field__control"
+            name="higher_pairs"
+            type="number"
+            min="0"
+            value={form.higher_pairs}
+            onChange={handleChange}
+          />
         </label>
-        <label className="field">
-          <span className="field__label">Kinematic Pairs</span>
-          <input className="field__control" name="kinematic_pairs" placeholder="Turning, sliding..."
-            value={form.kinematic_pairs} onChange={handleChange} />
-        </label>
-        <label className="field">
-          <span className="field__label">Degrees of Freedom</span>
-          <input className="field__control" name="degrees_of_freedom" type="number" min="0"
-            value={form.degrees_of_freedom} onChange={handleChange} />
-        </label>
-        <label className="field">
-          <span className="field__label">Input Link</span>
-          <input className="field__control" name="input_link"
-            value={form.input_link} onChange={handleChange} />
-        </label>
-        <label className="field">
-          <span className="field__label">Output Link</span>
-          <input className="field__control" name="output_link"
-            value={form.output_link} onChange={handleChange} />
-        </label>
-        <label className="field field--wide">
-          <span className="field__label">Additional Technical Details</span>
-          <textarea className="field__control field__control--textarea" name="additional_technical_details" rows={3}
-            value={form.additional_technical_details} onChange={handleChange} />
-        </label>
-        <label className="field field--wide">
-          <span className="field__label">Mechanism Type</span>
-          <input className="field__control" name="mechanism_type" list="tom-mechanism-type-suggestions"
-            placeholder="Leave blank unless it needs a special live-preview animation"
-            value={form.mechanism_type} onChange={handleChange} />
-          <datalist id="tom-mechanism-type-suggestions">
-            {MECHANISM_TYPE_SUGGESTIONS.map((t) => <option key={t} value={t} />)}
-          </datalist>
-          <span className="field__hint">
-            Optional. Most categories get their live-preview animation automatically from Category above —
-            only set this for special cases like "pick-and-place".
+
+        <div className="field" style={{ justifyContent: "center" }}>
+          <span className="field__label">Calculated Mobility (DOF)</span>
+          <div style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "8px",
+            padding: "10px 14px",
+            borderRadius: "12px",
+            background: "rgba(251, 191, 36, 0.08)",
+            border: "1px solid rgba(251, 191, 36, 0.25)",
+            fontFamily: "var(--font-mono, monospace)",
+            fontSize: "0.85rem",
+            color: "var(--gold, #fbbf24)"
+          }}>
+            <strong>DOF = {dof}</strong>
+            <span style={{ fontSize: "0.75rem", color: "var(--muted, #94a3b8)" }}>
+              {dof === 1
+                ? "(1 Input constrained motion)"
+                : dof > 1
+                ? `(${dof} Inputs needed)`
+                : "(Locked frame/structure)"}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "0.5rem", marginTop: "1rem", marginBottom: "0.5rem" }}>
+        <h3 className="tom-form__section-title" style={{ margin: 0, border: "none", paddingTop: 0 }}>
+          3. Student Members
+        </h3>
+        <span style={{ fontSize: "0.8rem", color: "var(--accent, #6366f1)", background: "rgba(99, 102, 241, 0.1)", border: "1px solid rgba(99, 102, 241, 0.2)", padding: "0.25rem 0.75rem", borderRadius: "9999px", fontWeight: 500 }}>
+          🏛 NMIET · Mechanical Engineering
+        </span>
+      </div>
+      <div className="project-form__grid">
+        <label className="field field--wide" style={{ gridColumn: "1 / -1" }}>
+          <span className="field__label">Student Member(s) *</span>
+          <input
+            className="field__control"
+            name="student_name"
+            placeholder="e.g. Aarav Patil, Sakshi Verma, Rahul Shinde (All members in one entry)"
+            value={form.student_name}
+            onChange={handleChange}
+            required
+          />
+          <span className="field__hint" style={{ fontSize: "0.75rem", color: "var(--muted, #94a3b8)", marginTop: "4px" }}>
+            All student project members in a single entry (comma-separated for group projects).
           </span>
         </label>
+
+        <label className="field">
+          <span className="field__label">Academic Year / Class</span>
+          <input
+            className="field__control"
+            name="academic_year"
+            placeholder="e.g. SE Mech / TE Mech"
+            value={form.academic_year}
+            onChange={handleChange}
+          />
+        </label>
+
+        <label className="field">
+          <span className="field__label">Video / Demo URL (Optional)</span>
+          <input
+            className="field__control"
+            name="video_url"
+            placeholder="YouTube, Google Drive, or Loom link"
+            value={form.video_url}
+            onChange={handleChange}
+          />
+        </label>
       </div>
 
-      {/* ── VIDEO & LIVE PREVIEW CAPTION ──────────────────────────────── */}
-      <h3 className="tom-form__section-title">Video &amp; Animation Caption</h3>
-      <div className="project-form__grid">
-        <label className="field field--wide">
-          <span className="field__label">Video URL (optional)</span>
-          <input className="field__control" name="video_url" placeholder="https://www.youtube.com/embed/..."
-            value={form.video_url} onChange={handleChange} />
-          <span className="field__hint">Use a YouTube "embed" URL — a normal watch/share link won't play here.</span>
-        </label>
-        <label className="field field--wide">
-          <span className="field__label">Animation Caption (optional)</span>
-          <div style={{ display: "flex", gap: 8 }}>
-            <textarea className="field__control field__control--textarea" name="animation_description" rows={2}
-              placeholder="One line describing the motion — shown under the live preview."
-              value={form.animation_description} onChange={handleChange} style={{ flex: 1 }} />
-            <button type="button" className="button button--ghost" style={{ alignSelf: "flex-start" }}
-              onClick={() => setForm((cur) => ({
-                ...cur,
-                animation_description: suggestAnimationDescription({
-                  name: cur.name, category: cur.category, mechanism_type: cur.mechanism_type,
-                }),
-              }))}>
-              Suggest
-            </button>
+      <h3 className="tom-form__section-title">4. Mechanism Image / Poster &amp; Project Files</h3>
+      <p style={{ margin: "0 0 12px 0", fontSize: "0.82rem", color: "var(--muted)" }}>
+        Upload a photo or CAD screenshot of your mechanism. It will serve directly as the showcase thumbnail poster in the repository.
+      </p>
+
+      {imagePreview && (
+        <div style={{
+          display: "flex",
+          gap: "16px",
+          alignItems: "center",
+          padding: "12px 16px",
+          background: "rgba(56, 189, 248, 0.08)",
+          border: "1px solid rgba(56, 189, 248, 0.3)",
+          borderRadius: "14px",
+          marginBottom: "16px"
+        }}>
+          <img
+            src={imagePreview}
+            alt="Thumbnail preview"
+            style={{
+              width: "100px",
+              height: "70px",
+              borderRadius: "8px",
+              objectFit: "cover",
+              border: "1px solid rgba(255,255,255,0.2)"
+            }}
+          />
+          <div style={{ flex: 1 }}>
+            <span style={{ display: "inline-block", fontSize: "0.72rem", fontWeight: 700, color: "#34d399", background: "rgba(52, 211, 153, 0.15)", padding: "2px 8px", borderRadius: "999px", marginBottom: "4px" }}>
+              ✓ Repository Thumbnail Active
+            </span>
+            <p style={{ margin: 0, fontSize: "0.8rem", color: "#f8fafc" }}>
+              This image is optimized and will be displayed as the card poster in the repository.
+            </p>
           </div>
-          <span className="field__hint">"Suggest" fills in a draft from the name/category — edit it however you like.</span>
-        </label>
-      </div>
+          <button
+            type="button"
+            className="button button--ghost"
+            style={{ padding: "4px 10px", fontSize: "0.75rem", height: "auto" }}
+            onClick={() => {
+              setImagePreview("");
+              setImageUrlInput("");
+            }}
+          >
+            ✕ Remove
+          </button>
+        </div>
+      )}
 
-      {/* ── STUDENT INFORMATION ───────────────────────────────────────── */}
-      <h3 className="tom-form__section-title">Student Information</h3>
-      <div className="project-form__grid">
-        <label className="field">
-          <span className="field__label">Student Name <span style={{ color: "var(--danger)" }}>*</span></span>
-          <input className={`field__control${fieldErrors.student_name ? " field__control--error" : ""}`}
-            name="student_name"
-            value={form.student_name} onChange={handleChange} required aria-invalid={!!fieldErrors.student_name} aria-describedby={fieldErrors.student_name ? "error-student" : undefined} />
-          {fieldErrors.student_name && <span id="error-student" className="field__error">{fieldErrors.student_name}</span>}
-        </label>
-        <label className="field">
-          <span className="field__label">Team Members</span>
-          <input className="field__control" name="team_members" placeholder="Comma separated"
-            value={form.team_members} onChange={handleChange} />
-        </label>
-        <label className="field">
-          <span className="field__label">Department</span>
-          <input className="field__control" name="department" placeholder="Mechanical Engineering"
-            value={form.department} onChange={handleChange} />
-        </label>
-        <label className="field">
-          <span className="field__label">College / Institution</span>
-          <input className="field__control" name="college" placeholder="NMIET"
-            value={form.college} onChange={handleChange} />
-        </label>
-        <label className="field">
-          <span className="field__label">Academic Year</span>
-          <input className="field__control" name="academic_year" placeholder="SE Mech, 2025-28"
-            value={form.academic_year} onChange={handleChange} />
-        </label>
-        <label className="field">
-          <span className="field__label">External Links</span>
-          <input className="field__control" name="external_links" placeholder="Comma separated URLs"
-            value={form.external_links} onChange={handleChange} />
-        </label>
-      </div>
-
-      {/* ── MEDIA & RESOURCES ─────────────────────────────────────────── */}
-      <h3 className="tom-form__section-title">Media &amp; Resources</h3>
       <div className="tom-form__uploads">
         {FILE_SLOTS.map((slot) => (
           <label key={slot.key} className="field tom-upload">
@@ -265,7 +323,7 @@ export default function MechanismForm({ onCancel, onSubmit, submitting, formErro
             <input
               className="tom-upload__input"
               type="file"
-              multiple
+              multiple={slot.key !== "image"}
               accept={ACCEPT[slot.key]}
               onChange={(e) => handleFileChange(slot.key, e.target.files)}
             />
@@ -276,19 +334,24 @@ export default function MechanismForm({ onCancel, onSubmit, submitting, formErro
         ))}
       </div>
 
+      <label className="field" style={{ marginTop: "12px" }}>
+        <span className="field__label">Or Paste Image URL (Optional)</span>
+        <input
+          className="field__control"
+          placeholder="https://... direct image link"
+          value={imageUrlInput}
+          onChange={handleUrlChange}
+        />
+      </label>
+
       <div className="project-form__footer">
-        {(formError || Object.keys(fieldErrors).length > 0) && (
-          <div className="form-message form-message--error" role="alert">
-            <span style={{ marginRight: 8 }}>⚠️</span>
-            {formError || `Please fix ${Object.keys(fieldErrors).length} field(s) above`}
-          </div>
-        )}
+        <div className="project-form__message" role="status" aria-live="polite">{formError}</div>
         <div className="project-form__actions">
           <button type="button" className="button button--ghost" onClick={onCancel} disabled={submitting}>
             Cancel
           </button>
           <button type="submit" className="button button--primary" disabled={submitting}>
-            {submitting ? "Submitting…" : "Submit for Review"}
+            {submitting ? "Submitting…" : "Submit Mechanism"}
           </button>
         </div>
       </div>

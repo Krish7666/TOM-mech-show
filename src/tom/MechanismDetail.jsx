@@ -1,9 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { tomCategoryMeta } from "./tomConstants";
 import { fetchMechanismDetail, deleteMechanism, deleteMechanismMedia, approveMechanism, rejectMechanism } from "./tomApi";
+import { getMechanismPoster } from "./mechanismDrawings";
 import MechanismPreview from "./MechanismPreview.jsx";
+import { analyzeMechanism } from "./kinematics.js";
+import KinematicWorkbench from "./KinematicWorkbench.jsx";
 
-const TABS = ["Overview", "Images", "Videos", "Animation", "CAD", "Documents"];
+const TABS = ["Overview", "Animation", "Kinematic Solver", "Images", "Videos", "CAD", "Documents"];
 
 function tabForType(type) {
   if (type === "image" || type === "drawing") return "Images";
@@ -20,6 +23,7 @@ export default function MechanismDetail({ id, isAdmin, onBack, onChanged }) {
   const [error, setError] = useState("");
   const [activeTab, setActiveTab] = useState("Overview");
   const [busy, setBusy] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -43,8 +47,10 @@ export default function MechanismDetail({ id, isAdmin, onBack, onChanged }) {
     return groups;
   }, [media]);
 
+  const analysis = useMemo(() => (mechanism ? analyzeMechanism(mechanism) : null), [mechanism]);
+
   const availableTabs = useMemo(
-    () => TABS.filter((t) => t === "Overview" || mediaByTab[t]?.length > 0),
+    () => TABS.filter((t) => t === "Overview" || t === "Kinematic Solver" || t === "Animation" || mediaByTab[t]?.length > 0),
     [mediaByTab],
   );
 
@@ -105,9 +111,36 @@ export default function MechanismDetail({ id, isAdmin, onBack, onChanged }) {
 
   return (
     <section className="tom-detail">
-      <button type="button" className="button button--ghost tom-detail__back" onClick={onBack}>
-        ← Browse All Mechanisms
-      </button>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12, marginBottom: 8 }}>
+        <button type="button" className="button button--ghost tom-detail__back" onClick={onBack}>
+          ← Browse All Mechanisms
+        </button>
+
+        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+          <button
+            type="button"
+            className="secondary-btn secondary-btn--small"
+            onClick={() => {
+              try {
+                navigator.clipboard.writeText(window.location.href);
+                setCopied(true);
+                setTimeout(() => setCopied(false), 2200);
+              } catch {
+                // clipboard fallback
+              }
+            }}
+          >
+            {copied ? "✓ Copied!" : "🔗 Share Link"}
+          </button>
+          <button
+            type="button"
+            className="secondary-btn secondary-btn--small"
+            onClick={() => window.print()}
+          >
+            🖨 Print Specs
+          </button>
+        </div>
+      </div>
 
       {mechanism.status !== "approved" && (
         <div className="tom-detail__status-banner">
@@ -115,7 +148,6 @@ export default function MechanismDetail({ id, isAdmin, onBack, onChanged }) {
         </div>
       )}
 
-      {/* ── HEADER ─────────────────────────────────────────────────────── */}
       <header className="tom-detail__header" style={{ "--card-accent": meta.color }}>
         <div className="tom-detail__category-badge">
           <span>{meta.icon}</span><span>{mechanism.category || "Other"}</span>
@@ -123,7 +155,7 @@ export default function MechanismDetail({ id, isAdmin, onBack, onChanged }) {
         <h1 className="tom-detail__title">{mechanism.name}</h1>
         <p className="tom-detail__uploader">
           Uploaded by <strong>{mechanism.student_name || "Unknown"}</strong>
-          {mechanism.college ? ` · ${mechanism.college}` : ""}
+          {` · ${mechanism.college || "NMIET"} · Dept. of Mechanical Engineering`}
         </p>
 
         {isAdmin && (
@@ -145,13 +177,12 @@ export default function MechanismDetail({ id, isAdmin, onBack, onChanged }) {
         )}
       </header>
 
-      {/* ── MEDIA GALLERY ──────────────────────────────────────────────── */}
       <div className="tom-detail__tabs" role="tablist">
         {availableTabs.map((tab) => (
           <button key={tab} type="button" role="tab" aria-selected={activeTab === tab}
             className={`tom-detail__tab${activeTab === tab ? " tom-detail__tab--active" : ""}`}
             onClick={() => setActiveTab(tab)}>
-            {tab}
+            {tab === "Kinematic Solver" ? "⚙️ Kinematic Solver" : tab === "Animation" ? "🌀 Animation" : tab}
           </button>
         ))}
       </div>
@@ -159,44 +190,45 @@ export default function MechanismDetail({ id, isAdmin, onBack, onChanged }) {
       <div className="tom-detail__panel">
         {activeTab === "Overview" ? (
           <OverviewPanel mechanism={mechanism} />
+        ) : activeTab === "Kinematic Solver" ? (
+          <KinematicWorkbench initialMechanism={mechanism} />
         ) : (
           <MediaPanel
             items={mediaByTab[activeTab] || []}
             tab={activeTab}
             isAdmin={isAdmin}
             onDelete={handleDeleteMedia}
+            mechanism={mechanism}
+            analysis={analysis}
           />
         )}
       </div>
 
-      {/* ── TECHNICAL DETAILS ──────────────────────────────────────────── */}
-      <h2 className="tom-detail__section-title">Technical Details</h2>
+      <h2 className="tom-detail__section-title">Technical Details &amp; Kinematics</h2>
       <div className="tom-spec-grid">
-        <SpecCard label="Links" value={mechanism.num_links} />
-        <SpecCard label="Joints" value={mechanism.num_joints} />
-        <SpecCard label="Higher Pairs" value={mechanism.num_higher_pairs} />
-        <SpecCard label="DOF" value={mechanism.degrees_of_freedom} />
-        <SpecCard label="Kinematic Pairs" value={mechanism.kinematic_pairs} />
-        <SpecCard label="Input Link" value={mechanism.input_link} />
-        <SpecCard label="Output Link" value={mechanism.output_link} />
+        <SpecCard label="Links (L)" value={mechanism.num_links ?? analysis?.links} />
+        <SpecCard label="Joints (J)" value={mechanism.num_joints ?? analysis?.joints} />
+        <SpecCard label="Higher Pairs (H)" value={mechanism.higher_pairs ?? analysis?.higherPairs ?? 0} />
+        <SpecCard label="Calculated DOF" value={analysis?.result ?? mechanism.degrees_of_freedom} />
+        <SpecCard label="Kinematic Pairs" value={mechanism.kinematic_pairs || "Lower Pairs (Revolute)"} />
+        <SpecCard label="Input Link" value={mechanism.input_link || "Link 1 (Driver)"} />
+        <SpecCard label="Output Link" value={mechanism.output_link || "Output / Rocker"} />
       </div>
+      {analysis && (
+        <div className={`analysis-status analysis-status--${analysis.status}`} style={{ margin: "16px 0" }}>
+          <div>
+            <span className="analysis-status__eyebrow">Mobility Classification (Grübler's Criteria)</span>
+            <h3>{analysis.title}</h3>
+          </div>
+          <strong>{analysis.status === "invalid" ? "!" : analysis.result}</strong>
+          <p>{analysis.explanation}</p>
+          <p className="analysis-status__recommendation">{analysis.recommendation}</p>
+        </div>
+      )}
       {mechanism.additional_technical_details && (
         <p className="tom-detail__extra-tech">{mechanism.additional_technical_details}</p>
       )}
 
-      {/* ── LIVE DOF CALCULATOR & MECHANISM PREVIEW ──────────────────────── */}
-      <h2 className="tom-detail__section-title">Live Preview &amp; DOF Calculator</h2>
-      <MechanismPreview
-        mechanism={mechanism}
-        isAdmin={isAdmin}
-        onSaved={(updated) => setMechanism(updated)}
-      />
-      {mechanism.animation_description && (
-        <p className="tom-detail__extra-tech">{mechanism.animation_description}</p>
-      )}
-
-
-      {/* ── RESOURCES ──────────────────────────────────────────────────── */}
       {media.length > 0 && (
         <>
           <h2 className="tom-detail__section-title">Resources</h2>
@@ -219,15 +251,16 @@ export default function MechanismDetail({ id, isAdmin, onBack, onChanged }) {
         </>
       )}
 
-      {/* ── TEAM ───────────────────────────────────────────────────────── */}
       <h2 className="tom-detail__section-title">Team / Contributor</h2>
       <div className="tom-team-card">
         <div className="author-row__avatar">{(mechanism.student_name || "?").charAt(0).toUpperCase()}</div>
         <div>
           <p className="tom-team-card__name">{mechanism.student_name || "Unknown"}</p>
-          {mechanism.team_members && <p className="tom-team-card__members">Team: {mechanism.team_members}</p>}
+          {mechanism.team_members && mechanism.team_members !== mechanism.student_name && (
+            <p className="tom-team-card__members">Team: {mechanism.team_members}</p>
+          )}
           <p className="tom-team-card__meta">
-            {[mechanism.department, mechanism.college, mechanism.academic_year].filter(Boolean).join(" · ")}
+            {[mechanism.department || "Mechanical Engineering", mechanism.college || "NMIET", mechanism.academic_year].filter(Boolean).join(" · ")}
           </p>
         </div>
       </div>
@@ -236,21 +269,16 @@ export default function MechanismDetail({ id, isAdmin, onBack, onChanged }) {
 }
 
 function OverviewPanel({ mechanism }) {
+  const cover = getMechanismPoster(mechanism);
+
   return (
     <div className="tom-overview">
-      {mechanism.short_description && <p className="tom-overview__lead">{mechanism.short_description}</p>}
-      {mechanism.video_url && (
-        <>
-          <h3>Video</h3>
-          <iframe
-            className="video-frame"
-            src={mechanism.video_url}
-            title={`${mechanism.name} video`}
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-            allowFullScreen
-          />
-        </>
+      {cover && (
+        <div className="tom-overview__media-hero" style={{ marginBottom: 20, borderRadius: 16, overflow: "hidden", border: "1px solid var(--border)", maxHeight: 380, background: "rgba(0,0,0,0.2)" }}>
+          <img src={cover} alt={mechanism.name} style={{ width: "100%", maxHeight: 380, objectFit: "cover", display: "block" }} />
+        </div>
       )}
+      {mechanism.short_description && <p className="tom-overview__lead">{mechanism.short_description}</p>}
       {mechanism.detailed_description && (
         <>
           <h3>Description</h3>
@@ -276,7 +304,39 @@ function OverviewPanel({ mechanism }) {
   );
 }
 
-function MediaPanel({ items, tab, isAdmin, onDelete }) {
+function MediaPanel({ items, tab, isAdmin, onDelete, mechanism, analysis }) {
+  if (tab === "Animation") {
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+        {mechanism && analysis && (
+          <div>
+            <p style={{ margin: "0 0 12px 0", color: "var(--muted)", font: "500 0.9rem var(--font-body)" }}>
+              Live mathematical kinematic simulation based on this mechanism’s constraints and geometry:
+            </p>
+            <MechanismPreview mechanism={mechanism} analysis={analysis} />
+          </div>
+        )}
+        {items.length > 0 && (
+          <div className="tom-media-gallery" style={{ marginTop: 12 }}>
+            {items.map((row) => (
+              <div key={row.id} className="tom-media-item">
+                <video className="tom-media-item__video" src={row.file_url} controls preload="metadata" />
+                <div className="tom-media-item__caption">
+                  <span>{row.file_name}</span>
+                  {isAdmin && (
+                    <button type="button" className="icon-button icon-button--danger" onClick={() => onDelete(row)} aria-label="Remove file">
+                      🗑
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+
   if (items.length === 0) {
     return <p className="tom-overview__empty">No {tab.toLowerCase()} uploaded yet.</p>;
   }
