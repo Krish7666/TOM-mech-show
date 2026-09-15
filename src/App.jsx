@@ -1,153 +1,52 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import "./App.css";
 import "./tom/tom.css";
 import TomShowcase from "./tom/TomShowcase.jsx";
-import { generateAnimationDescription } from "./tom/kinematics.js";
 import { verifyAdminCredentials, isSupabaseConfigured } from "./lib/supabaseClient.js";
 import MechanismForm from "./tom/MechanismForm.jsx";
-import { submitMechanism } from "./tom/tomApi.js";
+import {
+  submitMechanism,
+  fetchApprovedMechanisms,
+  fetchPendingMechanisms,
+  approveMechanism,
+  rejectMechanism,
+  deleteMechanism as apiDeleteMechanism,
+  updateMechanism as apiUpdateMechanism,
+} from "./tom/tomApi.js";
+import { BUILTIN_MECHANISMS, TOM_CATEGORIES } from "./tom/tomConstants.js";
 import KinematicWorkbench from "./tom/KinematicWorkbench.jsx";
+import FourBarVirtualLab from "./tom/FourBarVirtualLab.jsx";
 
-const initialMechanisms = [
-  {
-    id: 1,
-    name: "Four-Bar Linkage Animator",
-    category: "Linkages",
-    student_name: "Aarav Patil",
-    college: "NMIET",
-    department: "Mechanical Engineering",
-    short_description: "A compact demonstration of motion transmission and position analysis using a four-bar mechanism.",
-    information:
-      "This linkage is used to convert rotary motion to constrained oscillatory motion. The mechanism is widely used in pumps, steering systems, and machine tooling where a controlled path is required.",
-    dofFormula: "DOF = 3(L - 1) - 2J - H",
-    dofInputs: { links: 4, joints: 4, higherPairs: 0 },
-    instructions: [
-      "Keep one link fixed as the frame.",
-      "Rotate the input crank slowly to observe the coupler path.",
-      "Record the position of the output link for each crank angle.",
-    ],
-    video: "https://www.youtube.com/embed/Pj2n2_j1pIQ",
-    animation: "A crank-rocker path traced by the coupler link in one full rotation.",
-    formulaNote: "The four-bar linkage has one degree of freedom because only one input motion is needed to define the entire mechanism.",
-  },
-  {
-    id: 2,
-    name: "Cam Profile Study",
-    category: "Cam mechanisms",
-    student_name: "Sakshi Verma",
-    college: "NMIET",
-    department: "Mechanical Engineering",
-    short_description: "Visual analysis of follower motion and displacement profile for a standard cam mechanism.",
-    information:
-      "A cam converts rotary motion into a defined translational or oscillating follower motion. The follower motion is controlled by the profile shape of the cam.",
-    dofFormula: "DOF = 3(L - 1) - 2J - H",
-    dofInputs: { links: 3, joints: 2, higherPairs: 1 },
-    instructions: [
-      "Set the cam on the shaft and align the follower to the base line.",
-      "Rotate the cam gradually and note the rise, dwell, and return phases.",
-      "Compare the actual follower motion with the theoretical displacement diagram.",
-    ],
-    video: "https://www.youtube.com/embed/7dQde5T3xU4",
-    animation: "A rotating disc cam lifting the follower with a rise-dwell-return cycle.",
-    formulaNote: "The higher pair at the cam-follower contact reduces mobility, but the system still behaves as a single-input motion mechanism.",
-  },
-  {
-    id: 3,
-    name: "Gear Train Efficiency Model",
-    category: "Gear mechanisms",
-    student_name: "Rahul Shinde",
-    college: "NMIET",
-    department: "Mechanical Engineering",
-    short_description: "A gear-ratio simulation built to compare speed, torque, and efficiency across different train layouts.",
-    information:
-      "Gear trains are used to change speed and torque between shafts while maintaining smooth power transmission. The design depends on tooth count and meshing arrangement.",
-    dofFormula: "DOF = 3(L - 1) - 2J - H",
-    dofInputs: { links: 3, joints: 2, higherPairs: 1 },
-    instructions: [
-      "Select the gear pair and confirm the mesh alignment.",
-      "Rotate the driver gear slowly and record the driven speed.",
-      "Calculate the ratio from the number of teeth and compare it with the observed output speed.",
-    ],
-    video: "https://www.youtube.com/embed/2OT8nyb0QpQ",
-    animation: "Interlocking gears transferring torque through a multi-stage speed reduction system.",
-    formulaNote: "The gear train uses repeated rolling contact between meshed teeth, which gives precise power transmission with manageable loss.",
-  },
-  {
-    id: 4,
-    name: "Steering Mechanism Mockup",
-    category: "Steering mechanisms",
-    student_name: "Pranav Kulkarni",
-    college: "NMIET",
-    department: "Mechanical Engineering",
-    short_description: "A practical steering linkage layout showing turning motion and wheel alignment behaviour.",
-    information:
-      "The steering linkage guides the front wheels according to the steering wheel input. Its geometry allows smooth turning while maintaining directional control.",
-    dofFormula: "DOF = 3(L - 1) - 2J - H",
-    dofInputs: { links: 6, joints: 7, higherPairs: 0 },
-    instructions: [
-      "Lock the steering rack carefully and rotate the steering arm gradually.",
-      "Observe both wheel directions as the linkage moves.",
-      "Verify the toe-in and steering lock conditions before finalizing the motion path.",
-    ],
-    video: "https://www.youtube.com/embed/9V00R_1R7jM",
-    animation: "A steering linkage turning the left and right wheels with coordinated angular movement.",
-    formulaNote: "The mechanism is a multi-link guided motion system where the steering input must be coordinated with wheel geometry to avoid skidding.",
-  },
-  {
-    id: 5,
-    name: "Pick-and-Place Mechanism",
-    category: "Linkages",
-    mechanismType: "pick-and-place",
-    student_name: "Demo Mechanism",
-    college: "NMIET",
-    department: "Mechanical Engineering",
-    short_description: "A guided slider mechanism that moves an object forward, lowers the gripper, returns, and releases it at a new position.",
-    information:
-      "This pick-and-place mechanism combines rotary input with guided horizontal and vertical motion. It is useful for transferring components between stations in assembly and packaging systems.",
-    dofFormula: "DOF = 3(L - 1) - 2J - H",
-    dofInputs: { links: 4, joints: 4, higherPairs: 0 },
-    instructions: [
-      "Place the object below the gripper pickup point.",
-      "Run the input crank slowly and observe the slider move forward.",
-      "The gripper lowers to pick the object, returns along the guide, and rises to place it.",
-    ],
-    video: "",
-    animation: "The slider travels forward, lowers the gripper, carries the object back, and raises it at the placement point.",
-    formulaNote: "The mechanism is designed as a single-input constrained system. Its guide links keep the gripper path controlled during pickup and placement.",
-  },
-];
-
-const categories = ["All", "Linkages", "Gear mechanisms", "Cam mechanisms", "Steering mechanisms"];
-
-const highlights = [
-  { icon: "◈", title: "Kinematic Analysis", text: "Visual explanation of motion, force, and displacement behaviour." },
-  { icon: "⚙", title: "Practical Design", text: "Mechanism concepts linked directly to machine-building problem solving." },
-  { icon: "✦", title: "Student Innovation", text: "Curated showcase of classroom-inspired engineering thinking." },
-];
 
 
 const menuCards = [
   {
-    title: "Cloud Repository",
-    copy: "Explore all mechanism models, animated simulations, student uploads, and technical specifications.",
+    title: "Mechanism Simulator Lab",
+    copy: "Interactive four-bar simulator: adjust link lengths and watch how the mechanism moves in real time.",
+    action: "VLab",
+    badge: "Interactive Lab",
+  },
+  {
+    title: "Mechanism Repository",
+    copy: "Explore working mechanisms, student projects, photos, videos, and motion models.",
     action: "Repository",
-    badge: "Unified Showcase",
+    badge: "Showcase",
   },
   {
     title: "Submit a Mechanism",
-    copy: "Share your mechanism model, technical calculations, drawings, and project CAD media.",
+    copy: "Share your mechanism project model, photos, description, and project files with the department.",
     action: "Submit",
     badge: "Student Upload",
   },
   {
-    title: "Kinematic Analysis & Models",
-    copy: "Explore planar degrees of freedom (Grübler criterion) with live interactive motion animations.",
+    title: "Browse All Models",
+    copy: "Browse the complete library of mechanical mechanisms and see how each one works.",
     action: "Models",
-    badge: "Interactive",
+    badge: "Explore",
   },
   {
     title: "Admin Portal",
-    copy: "Review submissions, manage the mechanism collection, or update details from the admin dashboard.",
+    copy: "Review and approve student submissions or manage the showcase.",
     action: "Login",
     badge: "Faculty / Admin",
   },
@@ -158,7 +57,7 @@ const LOGIN_LOCKOUT_MS = 60_000; // 1 minute
 
 const emptyMechanismForm = {
   name: "",
-  category: "Linkages",
+  category: "Four-bar",
   student_name: "",
   team_members: "",
   college: "NMIET",
@@ -171,45 +70,92 @@ const emptyMechanismForm = {
   higherPairs: "0",
   instructions: "",
   video: "",
+  animation_url: "",
+  virtual_mechanism_url: "",
   image: "",
 };
 
 function mechanismToForm(mechanism) {
   return {
     name: mechanism.name || "",
-    category: mechanism.category || "Linkages",
+    category: mechanism.category || "Four-bar",
     student_name: mechanism.student_name || "",
-    team_members: mechanism.team_members || "",
-    college: "NMIET",
-    department: "Mechanical Engineering",
-    short_description: mechanism.short_description || "",
-    information: mechanism.information || "",
+    team_members: mechanism.team_members || mechanism.student_name || "",
+    college: mechanism.college || "NMIET",
+    department: mechanism.department || "Mechanical Engineering",
+    short_description: mechanism.short_description || mechanism.detailed_description || "",
+    information: mechanism.detailed_description || mechanism.information || "",
     dofFormula: mechanism.dofFormula || "DOF = 3(L - 1) - 2J - H",
-    links: String(mechanism.dofInputs?.links ?? 4),
-    joints: String(mechanism.dofInputs?.joints ?? 4),
-    higherPairs: String(mechanism.dofInputs?.higherPairs ?? 0),
-    instructions: (mechanism.instructions || []).join("\n"),
-    video: mechanism.video || "",
-    image: mechanism.image || "",
+    links: String(mechanism.num_links ?? mechanism.dofInputs?.links ?? 4),
+    joints: String(mechanism.num_joints ?? mechanism.dofInputs?.joints ?? 4),
+    higherPairs: String(mechanism.higher_pairs ?? mechanism.dofInputs?.higherPairs ?? 0),
+    instructions: Array.isArray(mechanism.instructions)
+      ? mechanism.instructions.join("\n")
+      : (mechanism.working_principle || ""),
+    video: mechanism.video || (mechanism.external_links && mechanism.external_links[0]) || "",
+    animation_url: mechanism.animation_url || "",
+    virtual_mechanism_url: mechanism.virtual_mechanism_url || "",
+    image: mechanism.cover_image || mechanism.image || "",
   };
 }
 
 function normalizeMechanism(mechanism) {
+  const links = Number(mechanism.num_links ?? mechanism.dofInputs?.links ?? 4);
+  const joints = Number(mechanism.num_joints ?? mechanism.dofInputs?.joints ?? 4);
+  const higherPairs = Number(mechanism.higher_pairs ?? mechanism.dofInputs?.higherPairs ?? 0);
   return {
     ...mechanism,
-    originalDofInputs: {
-      ...(mechanism.originalDofInputs || mechanism.dofInputs || { links: 4, joints: 4, higherPairs: 0 }),
+    num_links: links,
+    num_joints: joints,
+    higher_pairs: higherPairs,
+    dofInputs: {
+      links,
+      joints,
+      higherPairs,
     },
+    originalDofInputs: {
+      links,
+      joints,
+      higherPairs,
+    },
+    short_description: mechanism.short_description || mechanism.detailed_description || "",
+    information: mechanism.detailed_description || mechanism.information || "",
+    instructions: Array.isArray(mechanism.instructions)
+      ? mechanism.instructions
+      : (mechanism.working_principle ? [mechanism.working_principle] : ["Rotate the input link slowly to observe kinematic motion."]),
+    video: mechanism.video || (mechanism.external_links && mechanism.external_links[0]) || "",
+    animation_url: mechanism.animation_url || "",
+    virtual_mechanism_url: mechanism.virtual_mechanism_url || "",
+    image: mechanism.cover_image || mechanism.preview_image_url || mechanism.image || "",
   };
 }
 
 function normalizeMechanisms(items) {
-  const normalized = items.map(normalizeMechanism);
-  return initialMechanisms.reduce((current, example) => (
-    current.some((mechanism) => mechanism.id === example.id)
-      ? current
-      : [...current, normalizeMechanism(example)]
-  ), normalized);
+  const normalized = (items || []).map(normalizeMechanism);
+  const seenIds = new Set(normalized.map((m) => String(m.id)));
+  const merged = [...normalized];
+  for (const item of BUILTIN_MECHANISMS) {
+    if (!seenIds.has(String(item.id))) {
+      seenIds.add(String(item.id));
+      merged.push(normalizeMechanism(item));
+    }
+  }
+  return merged;
+}
+
+function getInitialPage() {
+  try {
+    const hash = window.location.hash.toLowerCase();
+    if (hash.startsWith("#repository") || hash.startsWith("#mechanism/")) return "repository";
+    if (hash.startsWith("#submit")) return "submit";
+    if (hash.startsWith("#vlab") || hash.startsWith("#lab") || hash.startsWith("#virtual-lab")) return "vlab";
+    if (hash.startsWith("#admin")) return localStorage.getItem("tom-admin-session") === "true" ? "admin" : "login";
+    if (hash.startsWith("#login")) return "login";
+    if (hash.startsWith("#menu")) return "menu";
+    return "home";
+  } catch {
+    return "home";
+  }
 }
 
 export default function App() {
@@ -220,13 +166,7 @@ export default function App() {
       return false;
     }
   });
-  const [page, setPage] = useState(() => {
-    try {
-      return localStorage.getItem("tom-admin-session") === "true" ? "admin" : "home";
-    } catch {
-      return "home";
-    }
-  });
+  const [page, setPage] = useState(getInitialPage);
   const [loginForm, setLoginForm] = useState({ username: "", password: "" });
   const [loginError, setLoginError] = useState("");
   const [loginLock, setLoginLock] = useState(() => {
@@ -240,24 +180,85 @@ export default function App() {
     }
   });
 
-  useEffect(() => {
-    localStorage.setItem("tom-login-lock", JSON.stringify(loginLock));
-  }, [loginLock]);
-
-  const [mechanisms, setMechanisms] = useState(() => {
-    try {
-      const saved = JSON.parse(localStorage.getItem("tom-mechanisms"));
-      return normalizeMechanisms(saved || initialMechanisms);
-    } catch {
-      return normalizeMechanisms(initialMechanisms);
-    }
-  });
+  const [mechanisms, setMechanisms] = useState(() => normalizeMechanisms(BUILTIN_MECHANISMS));
+  const [pendingMechanisms, setPendingMechanisms] = useState([]);
   const [showAddForm, setShowAddForm] = useState(false);
   const [newMechanism, setNewMechanism] = useState(emptyMechanismForm);
   const [formError, setFormError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [editingMechanismId, setEditingMechanismId] = useState(null);
   const [isNavMenuOpen, setIsNavMenuOpen] = useState(false);
+  const [toast, setToast] = useState("");
+
+  const showToast = useCallback((msg) => {
+    setToast(msg);
+    setTimeout(() => setToast(""), 4500);
+  }, []);
+
+  const navigateTo = useCallback((targetPage, customHash) => {
+    setPage(targetPage);
+    window.location.hash = customHash || targetPage;
+  }, []);
+
+  const refreshData = useCallback(async () => {
+    try {
+      const [appRes, pendRes] = await Promise.all([
+        fetchApprovedMechanisms(),
+        fetchPendingMechanisms(),
+      ]);
+      if (appRes?.data) {
+        setMechanisms(normalizeMechanisms(appRes.data));
+      }
+      if (pendRes?.data) {
+        setPendingMechanisms(pendRes.data.map(normalizeMechanism));
+      }
+    } catch (err) {
+      console.error("Error refreshing mechanisms:", err);
+    }
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    Promise.all([fetchApprovedMechanisms(), fetchPendingMechanisms()]).then(([appRes, pendRes]) => {
+      if (!active) return;
+      if (appRes?.data) setMechanisms(normalizeMechanisms(appRes.data));
+      if (pendRes?.data) setPendingMechanisms(pendRes.data.map(normalizeMechanism));
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    const handleHashChange = () => {
+      const hash = window.location.hash.toLowerCase();
+      if (hash.startsWith("#repository") || hash.startsWith("#mechanism/")) {
+        setPage("repository");
+      } else if (hash.startsWith("#submit")) {
+        setPage("submit");
+      } else if (hash.startsWith("#vlab") || hash.startsWith("#lab") || hash.startsWith("#virtual-lab")) {
+        setPage("vlab");
+      } else if (hash.startsWith("#admin")) {
+        setPage(isAdminLoggedIn ? "admin" : "login");
+      } else if (hash.startsWith("#login")) {
+        setPage("login");
+      } else if (hash.startsWith("#menu")) {
+        setPage("menu");
+      } else if (hash === "" || hash === "#home" || hash === "#") {
+        setPage("home");
+      }
+    };
+    window.addEventListener("hashchange", handleHashChange);
+    return () => window.removeEventListener("hashchange", handleHashChange);
+  }, [isAdminLoggedIn]);
+
+  useEffect(() => {
+    localStorage.setItem("tom-login-lock", JSON.stringify(loginLock));
+  }, [loginLock]);
+
+  useEffect(() => {
+    localStorage.setItem("tom-admin-session", String(isAdminLoggedIn));
+  }, [isAdminLoggedIn]);
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -275,14 +276,6 @@ export default function App() {
     };
   }, [isNavMenuOpen]);
 
-  useEffect(() => {
-    localStorage.setItem("tom-admin-session", String(isAdminLoggedIn));
-  }, [isAdminLoggedIn]);
-
-  useEffect(() => {
-    localStorage.setItem("tom-mechanisms", JSON.stringify(mechanisms));
-  }, [mechanisms]);
-
   const startEditingMechanism = (mechanism) => {
     setEditingMechanismId(mechanism.id);
     setNewMechanism(mechanismToForm(mechanism));
@@ -290,11 +283,28 @@ export default function App() {
     setShowAddForm(true);
   };
 
-  const deleteMechanism = (id) => {
-    const mechanism = mechanisms.find((item) => item.id === id);
-    if (!mechanism || !window.confirm(`Delete “${mechanism.name}”? This cannot be undone.`)) return;
+  const deleteMechanism = async (id) => {
+    const mechanism = mechanisms.find((item) => String(item.id) === String(id));
+    if (!mechanism) return;
+    if (String(id).startsWith("builtin-")) {
+      alert("Built-in core reference models cannot be deleted as they are part of the core syllabus.");
+      return;
+    }
+    if (!window.confirm(`Delete "${mechanism.name}"? This cannot be undone.`)) return;
 
-    setMechanisms((current) => current.filter((item) => item.id !== id));
+    await apiDeleteMechanism(id);
+    await refreshData();
+  };
+
+  const handleApprovePending = async (id) => {
+    await approveMechanism(id);
+    await refreshData();
+  };
+
+  const handleRejectPending = async (id) => {
+    if (!window.confirm("Are you sure you want to reject this submission?")) return;
+    await rejectMechanism(id);
+    await refreshData();
   };
 
   const handleLoginSubmit = async (event) => {
@@ -324,13 +334,13 @@ export default function App() {
     setLoginLock({ attempts: 0, lockedUntil: 0 });
     setLoginError("");
     setIsAdminLoggedIn(true);
-    setPage("admin");
+    navigateTo("admin");
   };
 
   const handleLogout = () => {
     setIsAdminLoggedIn(false);
     setLoginForm({ username: "", password: "" });
-    setPage("home");
+    navigateTo("home");
   };
 
   const handleChange = (event) => {
@@ -355,7 +365,7 @@ export default function App() {
     reader.readAsDataURL(file);
   };
 
-  const handleAddMechanismSubmit = (event) => {
+  const handleAddMechanismSubmit = async (event) => {
     event.preventDefault();
 
     if (!newMechanism.name || !newMechanism.student_name || !newMechanism.category) {
@@ -363,43 +373,46 @@ export default function App() {
       return;
     }
 
-    const savedMechanism = {
-      id: editingMechanismId ?? Date.now(),
-      name: newMechanism.name,
-      category: newMechanism.category,
-      student_name: newMechanism.student_name,
-      team_members: newMechanism.student_name,
-      college: "NMIET",
-      department: "Mechanical Engineering",
-      short_description: newMechanism.short_description || "Student-submitted mechanism project.",
-      information: newMechanism.information || "Mechanism details are shared by the student for academic review.",
-      dofFormula: newMechanism.dofFormula || "DOF = 3(L - 1) - 2J - H",
-      dofInputs: {
-        links: Number(newMechanism.links || 4),
-        joints: Number(newMechanism.joints || 4),
-        higherPairs: Number(newMechanism.higherPairs || 0),
-      },
-      instructions: (newMechanism.instructions || "Rotate the input link slowly and observe the movement path.")
-        .split("\n")
-        .map((item) => item.trim())
-        .filter(Boolean),
-      video: newMechanism.video || "",
-      animation: generateAnimationDescription(newMechanism),
-      image: newMechanism.image || "",
-      formulaNote: "This value is calculated from the mechanism’s link and joint data using the standard DOF relation for planar mechanisms.",
-    };
+    setSubmitting(true);
+    setFormError("");
 
-    savedMechanism.originalDofInputs = editingMechanismId
-      ? { ...(mechanisms.find((item) => item.id === editingMechanismId)?.originalDofInputs || savedMechanism.dofInputs) }
-      : { ...savedMechanism.dofInputs };
+    try {
+      const payload = {
+        name: newMechanism.name,
+        category: newMechanism.category,
+        student_name: newMechanism.student_name,
+        team_members: newMechanism.team_members || newMechanism.student_name,
+        college: newMechanism.college || "NMIET",
+        department: newMechanism.department || "Mechanical Engineering",
+        short_description: newMechanism.short_description || "Faculty/Admin added mechanism.",
+        detailed_description: newMechanism.information || newMechanism.detailed_description || "",
+        num_links: Number(newMechanism.links || 4),
+        num_joints: Number(newMechanism.joints || 4),
+        higher_pairs: Number(newMechanism.higherPairs || 0),
+        instructions: (newMechanism.instructions || "")
+          .split("\n")
+          .map((item) => item.trim())
+          .filter(Boolean),
+        external_links: newMechanism.video ? [newMechanism.video] : [],
+        cover_image: newMechanism.image || "",
+        status: "approved",
+      };
 
-    setMechanisms((current) => editingMechanismId
-      ? current.map((item) => item.id === editingMechanismId ? savedMechanism : item)
-      : [savedMechanism, ...current]);
-    setNewMechanism(emptyMechanismForm);
-    setEditingMechanismId(null);
-    setShowAddForm(false);
-    setPage(editingMechanismId ? "admin" : "menu");
+      if (editingMechanismId) {
+        await apiUpdateMechanism(editingMechanismId, payload);
+      } else {
+        await submitMechanism(payload, {});
+      }
+
+      await refreshData();
+      setNewMechanism(emptyMechanismForm);
+      setEditingMechanismId(null);
+      setShowAddForm(false);
+    } catch (err) {
+      setFormError(err.message || "Failed to save mechanism.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const navDrawerItems = [
@@ -408,17 +421,17 @@ export default function App() {
       page: "home",
       icon: "🏠",
       title: "Home",
-      desc: "Showcase overview, statistics & live sandbox",
-      action: () => setPage("home"),
+      desc: "Showcase overview, kinematic mechanisms & simulator",
+      action: () => navigateTo("home"),
     },
     {
       id: "repository",
       page: "repository",
       icon: "🗄️",
       title: "Cloud Repository",
-      desc: "All mechanism models, 3D simulations & data tables",
+      desc: "All mechanism models, kinematic simulations & data tables",
       badge: `${mechanisms.length} Models`,
-      action: () => setPage("repository"),
+      action: () => navigateTo("repository"),
     },
     {
       id: "submit",
@@ -430,22 +443,17 @@ export default function App() {
         setNewMechanism(emptyMechanismForm);
         setFormError("");
         setEditingMechanismId(null);
-        setPage("submit");
+        navigateTo("submit");
       },
     },
     {
-      id: "solver",
-      page: "home",
-      icon: "⚙️",
-      title: "Kinematic Solver",
-      desc: "Grübler-Kutzbach planar mobility engine & presets",
+      id: "vlab",
+      page: "vlab",
+      icon: "🔬",
+      title: "Mechanism Simulator Lab",
+      desc: "Adjust links and explore mechanism motion in real time",
       badge: "Interactive",
-      action: () => {
-        setPage("home");
-        setTimeout(() => {
-          document.querySelector(".home-workbench-section")?.scrollIntoView({ behavior: "smooth" });
-        }, 120);
-      },
+      action: () => navigateTo("vlab", "#vlab"),
     },
     {
       id: "admin",
@@ -454,7 +462,7 @@ export default function App() {
       title: isAdminLoggedIn ? "Admin Dashboard" : "Admin Portal",
       desc: isAdminLoggedIn ? "Review and moderate student submissions" : "Sign in to access faculty administrative tools",
       badge: isAdminLoggedIn ? "Active" : undefined,
-      action: () => setPage(isAdminLoggedIn ? "admin" : "login"),
+      action: () => navigateTo(isAdminLoggedIn ? "admin" : "login"),
     },
   ];
 
@@ -493,7 +501,7 @@ export default function App() {
       </div>
 
       <header className="site-header">
-        <button type="button" className="brand" onClick={() => { setPage("home"); setIsNavMenuOpen(false); }} aria-label="Go to home page">
+        <button type="button" className="brand" onClick={() => { navigateTo("home"); setIsNavMenuOpen(false); }} aria-label="Go to home page">
           <span className="brand-mark">TOM</span>
           <span className="brand-copy">
             <span className="brand-copy__eyebrow">NMIET</span>
@@ -502,17 +510,6 @@ export default function App() {
         </button>
 
         <div className="site-header__actions">
-          {isAdminLoggedIn && (
-            <button
-              type="button"
-              className="admin-badge-btn"
-              onClick={() => { setPage("admin"); setIsNavMenuOpen(false); }}
-              title="Open Admin Dashboard"
-            >
-              ⚡ Admin
-            </button>
-          )}
-
           <button
             type="button"
             className={`nav-menu-toggle${isNavMenuOpen ? " nav-menu-toggle--active" : ""}`}
@@ -612,7 +609,7 @@ export default function App() {
                       className="primary-btn"
                       style={{ width: "100%", justifyContent: "center" }}
                       onClick={() => {
-                        setPage("login");
+                        navigateTo("login");
                         setIsNavMenuOpen(false);
                       }}
                     >
@@ -653,63 +650,32 @@ export default function App() {
 
                 <div className="cta-row">
                   <button type="button" className="primary-btn" onClick={() => setIsNavMenuOpen(true)}>Explore Menu ☰</button>
-                  <button type="button" className="secondary-btn" onClick={() => setPage("repository")}>Cloud Repository</button>
-                  <button type="button" className="secondary-btn" onClick={() => {
+                  <button type="button" className="secondary-btn secondary-btn--cyan" onClick={() => navigateTo("vlab", "#vlab")}>
+                    🔬 Four-Bar Virtual Lab
+                  </button>
+                  <button type="button" className="secondary-btn secondary-btn--purple" onClick={() => navigateTo("repository")}>
+                    📚 Cloud Repository
+                  </button>
+                  <button type="button" className="secondary-btn secondary-btn--emerald" onClick={() => {
                     setNewMechanism(emptyMechanismForm);
                     setFormError("");
                     setEditingMechanismId(null);
-                    setPage("submit");
-                  }}>+ Add Mechanism</button>
-                  <button type="button" className="secondary-btn" onClick={() => setPage(isAdminLoggedIn ? "admin" : "login")}>Admin Access</button>
-                </div>
-              </div>
-
-              <div className="hero-visual" aria-label="TOM insight panel">
-                <div className="visual-card visual-card--accent">
-                  <span className="visual-card__label">Active models</span>
-                  <strong>{mechanisms.length}</strong>
-                </div>
-                <div className="visual-card">
-                  <span className="visual-card__label">Focus</span>
-                  <strong>Mechanisms</strong>
-                </div>
-                <div className="visual-card visual-card--dark">
-                  <span className="visual-card__label">Study stream</span>
-                  <strong>Mechanical Engineering</strong>
+                    navigateTo("submit");
+                  }}>
+                    ➕ Add Mechanism
+                  </button>
+                  <button type="button" className="secondary-btn secondary-btn--amber" onClick={() => navigateTo(isAdminLoggedIn ? "admin" : "login")}>
+                    ⚡ Admin Access
+                  </button>
                 </div>
               </div>
             </section>
 
-            <section className="stats-row" aria-label="Website statistics">
-              <div className="stat-tile">
-                <span className="stat-tile__value">{mechanisms.length}</span>
-                <span className="stat-tile__label">Mechanisms</span>
-              </div>
-              <div className="stat-tile">
-                <span className="stat-tile__value">{categories.length - 1}</span>
-                <span className="stat-tile__label">Categories</span>
-              </div>
-              <div className="stat-tile">
-                <span className="stat-tile__value">Secure</span>
-                <span className="stat-tile__label">Access</span>
-              </div>
-            </section>
-
-            <section className="feature-grid" aria-label="Highlights">
-              {highlights.map((item) => (
-                <article key={item.title} className="feature-card">
-                  <span className="feature-card__icon" aria-hidden="true">{item.icon}</span>
-                  <h3>{item.title}</h3>
-                  <p>{item.text}</p>
-                </article>
-              ))}
-            </section>
 
             <section className="home-workbench-section" style={{ marginTop: 36 }}>
               <div className="section-heading-block">
-                <span className="eyebrow">Real-Time Kinematic Sandbox</span>
-                <h2>Grübler-Kutzbach Mobility Engine</h2>
-                <p>Test planar link networks, pairs, and degrees of freedom directly in the browser.</p>
+                <h2>Mechanism Simulator</h2>
+                <p>Interactive tool to explore how adjusting links and joints changes mechanism movement.</p>
               </div>
               <KinematicWorkbench />
             </section>
@@ -737,13 +703,14 @@ export default function App() {
                     type="button"
                     className="secondary-btn"
                     onClick={() => {
-                      if (card.action === "Repository" || card.action === "Models") setPage("repository");
-                      if (card.action === "Login") setPage(isAdminLoggedIn ? "admin" : "login");
+                      if (card.action === "VLab") navigateTo("vlab", "#vlab");
+                      if (card.action === "Repository" || card.action === "Models") navigateTo("repository");
+                      if (card.action === "Login") navigateTo(isAdminLoggedIn ? "admin" : "login");
                       if (card.action === "Submit") {
                         setNewMechanism(emptyMechanismForm);
                         setFormError("");
                         setEditingMechanismId(null);
-                        setPage("submit");
+                        navigateTo("submit");
                       }
                     }}
                   >
@@ -761,7 +728,7 @@ export default function App() {
               <button
                 type="button"
                 className="back-btn"
-                onClick={() => setPage("repository")}
+                onClick={() => navigateTo("repository")}
               >
                 ← Back to Cloud Repository
               </button>
@@ -771,11 +738,11 @@ export default function App() {
             </div>
 
             <MechanismForm
-              onCancel={() => setPage("repository")}
+              onCancel={() => navigateTo("repository")}
               onSubmit={async (payload, files) => {
                 setSubmitting(true);
                 setFormError("");
-                const { mechanism, error } = await submitMechanism(payload, files);
+                const { error } = await submitMechanism(payload, files);
                 setSubmitting(false);
 
                 if (error) {
@@ -783,10 +750,9 @@ export default function App() {
                   return;
                 }
 
-                if (mechanism) {
-                  setMechanisms((cur) => [mechanism, ...cur]);
-                }
-                setPage("repository");
+                await refreshData();
+                showToast("🎉 Mechanism published successfully to the Cloud Repository!");
+                navigateTo("repository");
               }}
               submitting={submitting}
               formError={formError}
@@ -794,45 +760,108 @@ export default function App() {
           </section>
         )}
 
+        {page === "vlab" && (
+          <section className="vlab-page-shell" style={{ width: "100%", maxWidth: 1320, margin: "0 auto", padding: "0 12px 40px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
+              <button
+                type="button"
+                className="back-btn"
+                onClick={() => navigateTo("home")}
+              >
+                ← Back to Home
+              </button>
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <button
+                  type="button"
+                  className="secondary-btn secondary-btn--small"
+                  onClick={() => navigateTo("repository")}
+                >
+                  Cloud Repository →
+                </button>
+                <span className="submit-page-badge">
+                  🔬 Theory of Machines Virtual Lab · SPPU Mechanical Engineering
+                </span>
+              </div>
+            </div>
+            <FourBarVirtualLab standalone={true} />
+          </section>
+        )}
+
         {(page === "repository" || page === "models") && (
           <TomShowcase
             isAdmin={isAdminLoggedIn}
-            onRequestAdminLogin={() => setPage("login")}
-            onRequestAddMechanism={() => { setFormError(""); setPage("submit"); }}
+            onRequestAdminLogin={() => navigateTo("login")}
+            onRequestAddMechanism={() => { setFormError(""); navigateTo("submit"); }}
           />
         )}
 
-        {page === "login" && !isAdminLoggedIn && (
+        {page === "login" && (
+          isAdminLoggedIn ? (
+            <section className="login-shell">
+              <div className="login-card" style={{ textAlign: "center" }}>
+                <div style={{ fontSize: "2.5rem", marginBottom: 12 }}>🛡️</div>
+                <h2>Already Signed In</h2>
+                <p>You are currently authenticated as an administrator.</p>
+                <div style={{ display: "flex", gap: 12, justifyContent: "center", marginTop: 24, flexWrap: "wrap" }}>
+                  <button className="primary-btn" type="button" onClick={() => navigateTo("admin")}>
+                    Open Admin Dashboard →
+                  </button>
+                  <button className="secondary-btn" type="button" onClick={handleLogout}>
+                    Sign Out
+                  </button>
+                </div>
+              </div>
+            </section>
+          ) : (
+            <section className="login-shell">
+              <div className="login-card">
+                <h2>Admin Login</h2>
+                <p>Use the control panel to review and manage the TOM showcase securely.</p>
+
+                <form className="login-form" onSubmit={handleLoginSubmit}>
+                  <label className="field">
+                    <span className="field__label">Username</span>
+                    <input
+                      type="text"
+                      value={loginForm.username}
+                      onChange={(event) => setLoginForm({ ...loginForm, username: event.target.value })}
+                      placeholder="admin"
+                    />
+                  </label>
+
+                  <label className="field">
+                    <span className="field__label">Password</span>
+                    <input
+                      type="password"
+                      value={loginForm.password}
+                      onChange={(event) => setLoginForm({ ...loginForm, password: event.target.value })}
+                      placeholder="••••••••"
+                    />
+                  </label>
+
+                  {loginError && <div className="login-error">{loginError}</div>}
+
+                  <button className="primary-btn login-submit" type="submit">Login to Dashboard</button>
+                </form>
+              </div>
+            </section>
+          )
+        )}
+
+        {page === "admin" && !isAdminLoggedIn && (
           <section className="login-shell">
-            <div className="login-card">
-              <h2>Admin Login</h2>
-              <p>Use the control panel to review and manage the TOM showcase securely.</p>
-
-              <form className="login-form" onSubmit={handleLoginSubmit}>
-                <label className="field">
-                  <span className="field__label">Username</span>
-                  <input
-                    type="text"
-                    value={loginForm.username}
-                    onChange={(event) => setLoginForm({ ...loginForm, username: event.target.value })}
-                    placeholder="admin"
-                  />
-                </label>
-
-                <label className="field">
-                  <span className="field__label">Password</span>
-                  <input
-                    type="password"
-                    value={loginForm.password}
-                    onChange={(event) => setLoginForm({ ...loginForm, password: event.target.value })}
-                    placeholder="••••••••"
-                  />
-                </label>
-
-                {loginError && <div className="login-error">{loginError}</div>}
-
-                <button className="primary-btn login-submit" type="submit">Login to Dashboard</button>
-              </form>
+            <div className="login-card" style={{ textAlign: "center" }}>
+              <div style={{ fontSize: "2.5rem", marginBottom: 12 }}>🔒</div>
+              <h2>Authentication Required</h2>
+              <p>You must sign in with administrator credentials to access the moderation dashboard.</p>
+              <div style={{ display: "flex", gap: 12, justifyContent: "center", marginTop: 24, flexWrap: "wrap" }}>
+                <button className="primary-btn" type="button" onClick={() => navigateTo("login")}>
+                  Sign In as Admin →
+                </button>
+                <button className="secondary-btn" type="button" onClick={() => navigateTo("home")}>
+                  Back to Home
+                </button>
+              </div>
             </div>
           </section>
         )}
@@ -841,116 +870,216 @@ export default function App() {
           <section className="admin-shell">
             <div className="admin-header">
               <div>
-                <h2>Admin Dashboard</h2>
+                <h2>Admin &amp; Moderation Dashboard</h2>
+                <p style={{ margin: "4px 0 0", color: "var(--muted)", fontSize: "0.9rem" }}>
+                  Manage verified curriculum mechanisms and moderate student project submissions.
+                </p>
               </div>
+              <button
+                type="button"
+                className="secondary-btn"
+                onClick={handleLogout}
+              >
+                Sign Out
+              </button>
             </div>
 
             <div className="admin-summary">
               <div className="summary-card">
-                <span>Total Projects</span>
+                <span>Approved Models</span>
                 <strong>{mechanisms.length}</strong>
               </div>
               <div className="summary-card">
-                <span>Active Categories</span>
-                <strong>{categories.length - 1}</strong>
+                <span>Pending Review</span>
+                <strong style={{ color: pendingMechanisms.length > 0 ? "var(--gold)" : "inherit" }}>
+                  {pendingMechanisms.length}
+                </strong>
               </div>
               <div className="summary-card">
-                <span>Security</span>
-                <strong>Enabled</strong>
+                <span>Storage Backend</span>
+                <strong>{isSupabaseConfigured ? "Supabase Cloud" : "Local Sync Engine"}</strong>
               </div>
             </div>
 
+            {/* ── PENDING SUBMISSIONS QUEUE ── */}
+            <div className="admin-panel" style={{ marginBottom: 28 }}>
+              <div className="admin-panel__header">
+                <div>
+                  <h3>Student Submissions Pending Moderation</h3>
+                  <span>{pendingMechanisms.length} awaiting faculty review</span>
+                </div>
+              </div>
+
+              {pendingMechanisms.length === 0 ? (
+                <div style={{
+                  padding: "32px 20px",
+                  textAlign: "center",
+                  borderRadius: "16px",
+                  background: "rgba(255,255,255,0.02)",
+                  border: "1px dashed var(--border)",
+                  color: "var(--muted)",
+                  fontSize: "0.9rem"
+                }}>
+                  <span style={{ fontSize: "1.6rem", display: "block", marginBottom: 8 }}>✅</span>
+                  <strong>All Submissions Cleared</strong>
+                  <p style={{ margin: "6px 0 0", fontSize: "0.82rem" }}>
+                    There are no pending submissions awaiting approval. Any newly submitted student models will appear here.
+                  </p>
+                </div>
+              ) : (
+                <div className="admin-list">
+                  {pendingMechanisms.map((pending) => (
+                    <div key={pending.id} className="admin-item" style={{ flexDirection: "column", alignItems: "stretch", gap: 14 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 8 }}>
+                        <div>
+                          <strong style={{ fontSize: "1.05rem" }}>{pending.name}</strong>
+                          <p style={{ margin: "2px 0 0", color: "var(--muted)", fontSize: "0.85rem" }}>
+                            {pending.category} · By {pending.student_name} ({pending.academic_year || "Student"}) · {pending.college || "NMIET"}
+                          </p>
+                        </div>
+                        <span style={{
+                          padding: "4px 10px",
+                          borderRadius: 999,
+                          background: "rgba(251,191,36,0.14)",
+                          border: "1px solid rgba(251,191,36,0.3)",
+                          color: "var(--gold)",
+                          fontSize: "0.72rem",
+                          fontWeight: 700,
+                          textTransform: "uppercase"
+                        }}>
+                          Pending Review
+                        </span>
+                      </div>
+
+                      <p style={{ margin: 0, color: "#cbd5e1", fontSize: "0.88rem", lineHeight: 1.5 }}>
+                        {pending.short_description || pending.detailed_description || "No description provided."}
+                      </p>
+
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10, paddingTop: 10, borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+                        <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.78rem", color: "var(--muted)" }}>
+                          Links: {pending.num_links ?? 4} | Joints: {pending.num_joints ?? 4} | Higher Pairs: {pending.higher_pairs ?? 0} | DOF: {pending.degrees_of_freedom ?? 1}
+                        </span>
+                        <div style={{ display: "flex", gap: 8 }}>
+                          <button
+                            type="button"
+                            className="primary-btn"
+                            style={{ minHeight: 36, padding: "0 14px", fontSize: "0.82rem" }}
+                            onClick={() => handleApprovePending(pending.id)}
+                          >
+                            ✓ Approve
+                          </button>
+                          <button
+                            type="button"
+                            className="danger-btn"
+                            style={{ minHeight: 36, padding: "0 14px", fontSize: "0.82rem" }}
+                            onClick={() => handleRejectPending(pending.id)}
+                          >
+                            ✕ Reject
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* ── APPROVED MECHANISM CATALOG ── */}
             <div className="admin-panel">
               <div className="admin-panel__header">
-                <h3>Approval Overview</h3>
-                <button type="button" className="primary-btn" onClick={() => setShowAddForm((value) => !value)}>
-                  {showAddForm ? "Close form" : "Add mechanism"}
+                <div>
+                  <h3>Approved Mechanism Catalog</h3>
+                  <span>{mechanisms.length} active models in repository</span>
+                </div>
+                <button
+                  type="button"
+                  className="primary-btn"
+                  onClick={() => {
+                    setShowAddForm((prev) => !prev);
+                    if (showAddForm) {
+                      setEditingMechanismId(null);
+                      setNewMechanism(emptyMechanismForm);
+                    }
+                  }}
+                >
+                  {showAddForm ? "Close Form" : "+ Add Mechanism"}
                 </button>
               </div>
 
               {showAddForm && (
-                <form className="mechanism-form" onSubmit={handleAddMechanismSubmit}>
+                <form className="mechanism-form" onSubmit={handleAddMechanismSubmit} style={{ marginBottom: 24, borderBottom: "1px solid var(--border)", paddingBottom: 24 }}>
                   <div className="form-heading">
-                    <h3>{editingMechanismId ? "Update mechanism details" : "Add a mechanism"}</h3>
+                    <h3>{editingMechanismId ? "Update Mechanism Details" : "Add a Mechanism to Catalog"}</h3>
                   </div>
                   <div className="mechanism-form__grid">
                     <label className="field">
-                      <span className="field__label">Mechanism name</span>
-                      <input name="name" value={newMechanism.name} onChange={handleChange} placeholder="Quick Return Mechanism" />
+                      <span className="field__label">Mechanism Name *</span>
+                      <input name="name" value={newMechanism.name} onChange={handleChange} placeholder="e.g. Quick Return Mechanism" required />
                     </label>
 
                     <label className="field">
-                      <span className="field__label">Category</span>
+                      <span className="field__label">Category *</span>
                       <select name="category" value={newMechanism.category} onChange={handleChange}>
-                        {categories.filter((item) => item !== "All").map((category) => (
+                        {TOM_CATEGORIES.map((category) => (
                           <option key={category} value={category}>{category}</option>
                         ))}
                       </select>
                     </label>
 
                     <label className="field field--full">
-                      <span className="field__label">Student Member(s) *</span>
+                      <span className="field__label">Student / Author Name(s) *</span>
                       <input
                         name="student_name"
                         value={newMechanism.student_name}
                         onChange={handleChange}
-                        placeholder="e.g. Aarav Patil, Sakshi Verma, Rahul Shinde (All members in one entry)"
+                        placeholder="e.g. Aarav Patil, Sakshi Verma (All members in one entry)"
+                        required
                       />
-                      <span className="field__hint">All student project members in a single entry (comma-separated for group projects).</span>
                     </label>
 
                     <label className="field field--full">
-                      <span className="field__label">Short description</span>
-                      <input name="short_description" value={newMechanism.short_description} onChange={handleChange} placeholder="Short project description" />
+                      <span className="field__label">Short Description</span>
+                      <input name="short_description" value={newMechanism.short_description} onChange={handleChange} placeholder="Brief project overview" />
                     </label>
 
                     <label className="field field--full">
-                      <span className="field__label">Mechanism information</span>
-                      <textarea name="information" value={newMechanism.information} onChange={handleChange} rows="4" placeholder="Explain the mechanism purpose and working principle" />
+                      <span className="field__label">Working Principle &amp; Details</span>
+                      <textarea name="information" value={newMechanism.information} onChange={handleChange} rows="3" placeholder="Explain the kinematic function and application" />
                     </label>
 
                     <label className="field">
-                      <span className="field__label">Links</span>
+                      <span className="field__label">Number of Links (L)</span>
                       <input name="links" type="number" value={newMechanism.links} onChange={handleChange} min="1" />
                     </label>
 
                     <label className="field">
-                      <span className="field__label">Joints</span>
+                      <span className="field__label">Number of Lower Joints (J)</span>
                       <input name="joints" type="number" value={newMechanism.joints} onChange={handleChange} min="0" />
                     </label>
 
                     <label className="field">
-                      <span className="field__label">Higher pairs</span>
+                      <span className="field__label">Number of Higher Pairs (H)</span>
                       <input name="higherPairs" type="number" value={newMechanism.higherPairs} onChange={handleChange} min="0" />
                     </label>
 
                     <label className="field field--full">
-                      <span className="field__label">Instructions to use</span>
-                      <textarea name="instructions" value={newMechanism.instructions} onChange={handleChange} rows="4" placeholder="Each line is a new instruction step" />
+                      <span className="field__label">Video / Embed URL</span>
+                      <input name="video" value={newMechanism.video} onChange={handleChange} placeholder="https://youtube.com/watch?v=..." />
                     </label>
 
-                    <div className="field field--full generated-field-note">
-                      <span className="field__label">Animation</span>
-                      <span className="field__hint">The animation is generated automatically from the mechanism name, category, description, and operating instructions.</span>
-                    </div>
-
                     <label className="field field--full">
-                      <span className="field__label">Student mechanism image</span>
+                      <span className="field__label">Mechanism Cover Image</span>
                       <input type="file" accept="image/*" onChange={handleImageChange} />
-                      <span className="field__hint">Upload a photo or CAD render. It will appear on the showcase thumbnail.</span>
-                      {newMechanism.image && <img className="form-image-preview" src={newMechanism.image} alt="Selected mechanism preview" />}
-                    </label>
-
-                    <label className="field field--full">
-                      <span className="field__label">Video URL</span>
-                      <input name="video" value={newMechanism.video} onChange={handleChange} placeholder="https://youtube.com/embed/..." />
+                      {newMechanism.image && <img className="form-image-preview" src={newMechanism.image} alt="Selected mechanism preview" style={{ marginTop: 8 }} />}
                     </label>
                   </div>
 
-                  {formError && <div className="login-error">{formError}</div>}
+                  {formError && <div className="login-error" style={{ marginTop: 12 }}>{formError}</div>}
 
-                  <div className="form-actions">
-                    <button type="submit" className="primary-btn">Save mechanism</button>
+                  <div className="form-actions" style={{ marginTop: 16 }}>
+                    <button type="submit" className="primary-btn" disabled={submitting}>
+                      {submitting ? "Saving..." : editingMechanismId ? "Save Changes" : "Create Mechanism"}
+                    </button>
                     <button
                       type="button"
                       className="secondary-btn"
@@ -968,19 +1097,44 @@ export default function App() {
               )}
 
               <div className="admin-list">
-                {mechanisms.map((mechanism) => (
-                  <div key={mechanism.id} className="admin-item">
-                    <div>
-                      <strong>{mechanism.name}</strong>
-                      <p>{mechanism.category} · {mechanism.student_name}</p>
+                {mechanisms.map((mechanism) => {
+                  const isBuiltIn = String(mechanism.id).startsWith("builtin-");
+                  return (
+                    <div key={mechanism.id} className="admin-item">
+                      <div>
+                        <strong>{mechanism.name}</strong>
+                        <p style={{ margin: "2px 0 0", color: "var(--muted)", fontSize: "0.85rem" }}>
+                          {mechanism.category} · By {mechanism.student_name || "Faculty / Core"}
+                        </p>
+                      </div>
+                      <div className="admin-item__actions">
+                        <span className="admin-item__status" style={{
+                          background: isBuiltIn ? "rgba(56, 189, 248, 0.12)" : "rgba(34, 197, 94, 0.12)",
+                          borderColor: isBuiltIn ? "rgba(56, 189, 248, 0.25)" : "rgba(34, 197, 94, 0.25)",
+                          color: isBuiltIn ? "#38bdf8" : "#86efac"
+                        }}>
+                          {isBuiltIn ? "Core Reference" : "Approved"}
+                        </span>
+                        <button
+                          type="button"
+                          className="secondary-btn secondary-btn--small"
+                          onClick={() => startEditingMechanism(mechanism)}
+                        >
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          className="danger-btn"
+                          disabled={isBuiltIn}
+                          title={isBuiltIn ? "Core reference models cannot be deleted" : "Delete mechanism"}
+                          onClick={() => deleteMechanism(mechanism.id)}
+                        >
+                          Delete
+                        </button>
+                      </div>
                     </div>
-                    <div className="admin-item__actions">
-                      <div className="admin-item__status">Approved</div>
-                      <button type="button" className="secondary-btn secondary-btn--small" onClick={() => startEditingMechanism(mechanism)}>Edit</button>
-                      <button type="button" className="danger-btn" onClick={() => deleteMechanism(mechanism.id)}>Delete</button>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           </section>
@@ -1008,6 +1162,51 @@ export default function App() {
           </div>
         </div>
       </footer>
+
+      {toast && (
+        <div
+          role="status"
+          aria-live="polite"
+          style={{
+            position: "fixed",
+            bottom: "28px",
+            right: "24px",
+            zIndex: 9999,
+            padding: "14px 22px",
+            borderRadius: "14px",
+            background: "linear-gradient(135deg, rgba(16, 185, 129, 0.95), rgba(5, 150, 105, 0.95))",
+            color: "#ffffff",
+            fontWeight: 600,
+            fontSize: "0.9rem",
+            boxShadow: "0 12px 32px rgba(16, 185, 129, 0.45)",
+            backdropFilter: "blur(12px)",
+            border: "1px solid rgba(255, 255, 255, 0.25)",
+            display: "flex",
+            alignItems: "center",
+            gap: "12px",
+            animation: "tomFadeIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)",
+          }}
+        >
+          <span>{toast}</span>
+          <button
+            type="button"
+            onClick={() => setToast("")}
+            style={{
+              background: "none",
+              border: "none",
+              color: "#fff",
+              cursor: "pointer",
+              fontSize: "1.2rem",
+              lineHeight: 1,
+              padding: "0 0 0 6px",
+              opacity: 0.8,
+            }}
+            aria-label="Close notification"
+          >
+            ×
+          </button>
+        </div>
+      )}
     </div>
   );
 }

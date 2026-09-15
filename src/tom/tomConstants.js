@@ -1,11 +1,3 @@
-import {
-  FOUR_BAR_BLUEPRINT,
-  CAM_FOLLOWER_BLUEPRINT,
-  GEAR_TRAIN_BLUEPRINT,
-  STEERING_BLUEPRINT,
-  PICK_AND_PLACE_BLUEPRINT,
-} from "./mechanismDrawings.js";
-
 // ─── TOM MECHANISM CATEGORIES ──────────────────────────────────────────────────
 // Kept as an explicit list (rather than derived only from data) so the filter
 // row stays stable even before any mechanisms of a category exist yet.
@@ -23,14 +15,14 @@ export const TOM_CATEGORIES = [
 ];
 
 export const TOM_CATEGORY_META = {
-  "Four-bar":            { icon: "⚙️", color: "#fbbf24" },
-  "Slider-crank":        { icon: "🔩", color: "#38bdf8" },
-  "Quick-return":        { icon: "↩️", color: "#34d399" },
-  "Gear mechanisms":     { icon: "🛠️", color: "#818cf8" },
-  "Cam mechanisms":      { icon: "🔵", color: "#f472b6" },
-  "Couplings":           { icon: "🔗", color: "#fb923c" },
-  "Steering mechanisms": { icon: "🚗", color: "#a3e635" },
-  "Other":               { icon: "🔬", color: "#94a3b8" },
+  "Four-bar":            { icon: "⚙️", color: "#38bdf8", bg: "rgba(56, 189, 248, 0.12)" },
+  "Slider-crank":        { icon: "🔩", color: "#34d399", bg: "rgba(52, 211, 153, 0.12)" },
+  "Quick-return":        { icon: "↩️", color: "#fbbf24", bg: "rgba(251, 191, 36, 0.12)" },
+  "Gear mechanisms":     { icon: "🛠️", color: "#818cf8", bg: "rgba(129, 140, 248, 0.12)" },
+  "Cam mechanisms":      { icon: "🔵", color: "#f472b6", bg: "rgba(244, 114, 182, 0.12)" },
+  "Couplings":           { icon: "🔗", color: "#fb923c", bg: "rgba(251, 146, 60, 0.12)" },
+  "Steering mechanisms": { icon: "🚗", color: "#a3e635", bg: "rgba(163, 230, 53, 0.12)" },
+  "Other":               { icon: "🔬", color: "#c084fc", bg: "rgba(192, 132, 252, 0.12)" },
 };
 
 export function tomCategoryMeta(category) {
@@ -60,7 +52,8 @@ export const ACCEPT = {
   video: "video/*",
   document: "application/pdf,.doc,.docx,.dwg,.dxf,.step,.stp,.iges,.igs,.stl,.sldprt,.sldasm,.zip",
   cad: ".dwg,.dxf,.step,.stp,.iges,.igs,.stl,.sldprt,.sldasm,.zip",
-  animation: "video/*,image/gif",
+  animation: "video/*,image/gif,.mp4,.webm,.mov,.gif",
+  virtual_mechanism: ".html,.htm,.zip,.json,.gltf,.glb,.step,.stp,.stl,.js,*",
   drawing: "image/*,application/pdf",
   other: "*",
 };
@@ -77,6 +70,8 @@ export const EMPTY_MECHANISM_FORM = {
   team_members: "",
   academic_year: "SE Mech",
   video_url: "",
+  animation_url: "",
+  virtual_mechanism_url: "",
   department: "Mechanical Engineering",
   college: "NMIET",
 };
@@ -110,8 +105,8 @@ export const BUILTIN_MECHANISMS = [
     external_links: ["https://www.youtube.com/embed/Pj2n2_j1pIQ"],
     status: "approved",
     mechanismType: "four-bar",
-    cover_image: FOUR_BAR_BLUEPRINT,
-    preview_image_url: FOUR_BAR_BLUEPRINT,
+    cover_image: "https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=800&auto=format&fit=crop&q=80",
+    preview_image_url: "https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=800&auto=format&fit=crop&q=80",
     created_at: "2026-01-15T10:00:00.000Z",
   },
   {
@@ -135,8 +130,8 @@ export const BUILTIN_MECHANISMS = [
     external_links: ["https://www.youtube.com/embed/7dQde5T3xU4"],
     status: "approved",
     mechanismType: "cam",
-    cover_image: CAM_FOLLOWER_BLUEPRINT,
-    preview_image_url: CAM_FOLLOWER_BLUEPRINT,
+    cover_image: "https://images.unsplash.com/photo-1537462715879-360eeb61a0ad?w=800&auto=format&fit=crop&q=80",
+    preview_image_url: "https://images.unsplash.com/photo-1537462715879-360eeb61a0ad?w=800&auto=format&fit=crop&q=80",
     created_at: "2026-01-20T10:00:00.000Z",
   },
   {
@@ -160,8 +155,8 @@ export const BUILTIN_MECHANISMS = [
     external_links: ["https://www.youtube.com/embed/2OT8nyb0QpQ"],
     status: "approved",
     mechanismType: "gear",
-    cover_image: GEAR_TRAIN_BLUEPRINT,
-    preview_image_url: GEAR_TRAIN_BLUEPRINT,
+    cover_image: "https://images.unsplash.com/photo-1508873696983-2df57046475b?w=800&auto=format&fit=crop&q=80",
+    preview_image_url: "https://images.unsplash.com/photo-1508873696983-2df57046475b?w=800&auto=format&fit=crop&q=80",
     created_at: "2026-02-01T10:00:00.000Z",
   },
   {
@@ -185,8 +180,8 @@ export const BUILTIN_MECHANISMS = [
     external_links: ["https://www.youtube.com/embed/9V00R_1R7jM"],
     status: "approved",
     mechanismType: "steering",
-    cover_image: STEERING_BLUEPRINT,
-    preview_image_url: STEERING_BLUEPRINT,
+    cover_image: "https://images.unsplash.com/photo-1503376780353-7e6692767b70?w=800&auto=format&fit=crop&q=80",
+    preview_image_url: "https://images.unsplash.com/photo-1503376780353-7e6692767b70?w=800&auto=format&fit=crop&q=80",
     created_at: "2026-02-10T10:00:00.000Z",
   },
   {
@@ -210,8 +205,8 @@ export const BUILTIN_MECHANISMS = [
     external_links: [],
     status: "approved",
     mechanismType: "pick-and-place",
-    cover_image: PICK_AND_PLACE_BLUEPRINT,
-    preview_image_url: PICK_AND_PLACE_BLUEPRINT,
+    cover_image: "https://images.unsplash.com/photo-1486262715619-67b85e0b08d3?w=800&auto=format&fit=crop&q=80",
+    preview_image_url: "https://images.unsplash.com/photo-1486262715619-67b85e0b08d3?w=800&auto=format&fit=crop&q=80",
     created_at: "2026-02-15T10:00:00.000Z",
   },
 ];

@@ -1,6 +1,8 @@
 import { supabase } from "../lib/supabaseClient";
-import { MECHANISM_STATUS, BUILTIN_MECHANISMS } from "./tomConstants";
-import { getMechanismPoster } from "./mechanismDrawings";
+import {
+  BUILTIN_MECHANISMS,
+  MECHANISM_STATUS,
+} from "./tomConstants";
 
 const MECHANISMS_TABLE = "tom_mechanisms";
 const MEDIA_TABLE      = "tom_mechanism_media";
@@ -23,10 +25,38 @@ export function getLocalMechanisms() {
 }
 
 export function saveLocalMechanisms(list) {
+  if (!Array.isArray(list)) return;
   try {
     localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(list));
   } catch (err) {
-    console.warn("Could not save local mechanisms:", err);
+    console.warn("Storage quota exceeded or write failed. Running emergency compaction...", err);
+    try {
+      // Pass 1: Prune large base64 media data from older submissions
+      const compacted = list.map((m, idx) => {
+        if (idx === 0) return m; // Preserve newest submission intact
+        return {
+          ...m,
+          media: (m.media || []).map((row) => {
+            if (row.file_url && typeof row.file_url === "string" && row.file_url.startsWith("data:") && row.file_url.length > 50000) {
+              return { ...row, file_url: "" };
+            }
+            return row;
+          }),
+        };
+      });
+      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(compacted));
+    } catch {
+      try {
+        // Pass 2: Retain newest 20 submissions with lightweight media references
+        const pruned = list.slice(0, 20).map((m) => ({
+          ...m,
+          media: (m.media || []).filter((r) => !r.file_url?.startsWith("data:") || r.file_url.length < 30000),
+        }));
+        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(pruned));
+      } catch (finalErr) {
+        console.error("Critical: Local storage quota completely full:", finalErr);
+      }
+    }
   }
 }
 
@@ -62,6 +92,30 @@ function resizeImageToThumbnail(file, maxWidth = 800, maxHeight = 600, quality =
       img.src = result;
     };
     reader.onerror = () => resolve("");
+    reader.readAsDataURL(file);
+  });
+}
+
+function readFileAsDataUrl(file) {
+  return new Promise((resolve) => {
+    if (!file) return resolve("");
+    // If file is very large (> 3.5MB), fallback to blob URL to protect localStorage quota
+    if (file.size > 3.5 * 1024 * 1024) {
+      try {
+        return resolve(URL.createObjectURL(file));
+      } catch {
+        return resolve("");
+      }
+    }
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => {
+      try {
+        resolve(URL.createObjectURL(file));
+      } catch {
+        resolve("");
+      }
+    };
     reader.readAsDataURL(file);
   });
 }
@@ -135,11 +189,15 @@ export async function fetchApprovedMechanisms() {
   }
 
   const enriched = merged.map((m) => {
-    const poster = getMechanismPoster(m);
+    const rawImage = m.cover_image || m.preview_image_url || m.image_url || m.image;
+    const cleanImage =
+      rawImage && typeof rawImage === "string" && !rawImage.startsWith("data:image/svg+xml")
+        ? rawImage
+        : null;
     return {
       ...m,
-      cover_image: poster,
-      preview_image_url: poster,
+      cover_image: cleanImage,
+      preview_image_url: cleanImage,
     };
   });
 
@@ -185,7 +243,8 @@ export async function fetchMechanismDetail(id) {
   // 1. Check built-in interactive mechanisms first
   const builtIn = BUILTIN_MECHANISMS.find((m) => String(m.id) === targetId);
   if (builtIn) {
-    const poster = getMechanismPoster(builtIn);
+    const rawImage = builtIn.cover_image || builtIn.image;
+    const cleanImage = rawImage && typeof rawImage === "string" && !rawImage.startsWith("data:image/svg+xml") ? rawImage : null;
     const media = [];
     if (builtIn.external_links?.[0]) {
       media.push({
@@ -196,15 +255,16 @@ export async function fetchMechanismDetail(id) {
         file_url: builtIn.external_links[0],
       });
     }
-    return { mechanism: { ...builtIn, cover_image: poster, preview_image_url: poster }, media, error: null };
+    return { mechanism: { ...builtIn, cover_image: cleanImage, preview_image_url: cleanImage }, media, error: null };
   }
 
   // 2. Check local student submissions
   const localItems = getLocalMechanisms();
   const local = localItems.find((m) => String(m.id) === targetId);
   if (local) {
-    const poster = getMechanismPoster(local);
-    return { mechanism: { ...local, cover_image: poster, preview_image_url: poster }, media: local.media || [], error: null };
+    const rawImage = local.cover_image || local.image;
+    const cleanImage = rawImage && typeof rawImage === "string" && !rawImage.startsWith("data:image/svg+xml") ? rawImage : null;
+    return { mechanism: { ...local, cover_image: cleanImage, preview_image_url: cleanImage }, media: local.media || [], error: null };
   }
 
   // 3. Check Supabase
@@ -216,8 +276,9 @@ export async function fetchMechanismDetail(id) {
           supabase.from(MEDIA_TABLE).select("*").eq("mechanism_id", id).order("created_at", { ascending: true }),
         ]);
       if (mechanism) {
-        const poster = getMechanismPoster(mechanism);
-        return { mechanism: { ...mechanism, cover_image: poster, preview_image_url: poster }, media: media || [], error: mechError || mediaError };
+        const rawImage = mechanism.cover_image || mechanism.image;
+        const cleanImage = rawImage && typeof rawImage === "string" && !rawImage.startsWith("data:image/svg+xml") ? rawImage : null;
+        return { mechanism: { ...mechanism, cover_image: cleanImage, preview_image_url: cleanImage }, media: media || [], error: mechError || mediaError };
       }
     } catch {
       // ignore
@@ -257,7 +318,7 @@ export async function submitMechanism(formValues, filesByType) {
 
       const url = isImg
         ? await resizeImageToThumbnail(file)
-        : URL.createObjectURL(file);
+        : await readFileAsDataUrl(file);
 
       if (!localCoverImage && isImg) {
         localCoverImage = url;
@@ -271,14 +332,31 @@ export async function submitMechanism(formValues, filesByType) {
     }
   }
 
-  // Fallback to dynamic blueprint poster if no image was provided
-  if (!localCoverImage) {
-    localCoverImage = getMechanismPoster({
-      name: formValues.name,
-      category: formValues.category,
-      degrees_of_freedom: dof,
-      student_name: formValues.student_name,
+  // Include direct animation link if provided
+  if (formValues.animation_url && formValues.animation_url.trim()) {
+    localMedia.push({
+      id: "media-anim-" + Date.now() + "-" + Math.random().toString(36).slice(2, 6),
+      file_type: "animation",
+      file_name: "Student Custom Animation",
+      file_url: formValues.animation_url.trim(),
+      is_embed: true,
     });
+  }
+
+  // Include direct virtual mechanism / simulation link if provided
+  if (formValues.virtual_mechanism_url && formValues.virtual_mechanism_url.trim()) {
+    localMedia.push({
+      id: "media-vm-" + Date.now() + "-" + Math.random().toString(36).slice(2, 6),
+      file_type: "virtual_mechanism",
+      file_name: "Student Virtual Mechanism",
+      file_url: formValues.virtual_mechanism_url.trim(),
+      is_embed: true,
+    });
+  }
+
+  // Only use cover image if student uploaded or linked one in the form
+  if (!localCoverImage) {
+    localCoverImage = formValues.background_image || formValues.bg_image_url || null;
   }
 
   const localId = "student-" + Date.now();
@@ -302,16 +380,23 @@ export async function submitMechanism(formValues, filesByType) {
     department: "Mechanical Engineering",
     college: "NMIET",
     academic_year: formValues.academic_year || "SE Mech",
-    external_links: formValues.video_url
-      ? [formValues.video_url.trim()]
-      : Array.isArray(formValues.external_links)
-      ? formValues.external_links
-      : typeof formValues.external_links === "string" && formValues.external_links.trim()
-      ? formValues.external_links.split(",").map((s) => s.trim()).filter(Boolean)
-      : [],
+    animation_url: formValues.animation_url ? formValues.animation_url.trim() : null,
+    virtual_mechanism_url: formValues.virtual_mechanism_url ? formValues.virtual_mechanism_url.trim() : null,
+    external_links: [
+      ...(formValues.video_url ? [formValues.video_url.trim()] : []),
+      ...(formValues.animation_url ? [formValues.animation_url.trim()] : []),
+      ...(formValues.virtual_mechanism_url ? [formValues.virtual_mechanism_url.trim()] : []),
+      ...(Array.isArray(formValues.external_links)
+        ? formValues.external_links
+        : typeof formValues.external_links === "string" && formValues.external_links.trim()
+        ? formValues.external_links.split(",").map((s) => s.trim()).filter(Boolean)
+        : []),
+    ],
     status: MECHANISM_STATUS.APPROVED, // Approved locally so it appears in Cloud Repository immediately!
     cover_image: localCoverImage,
     preview_image_url: localCoverImage,
+    background_image: formValues.background_image || formValues.bg_image_url || null,
+    bg_image_url: formValues.background_image || formValues.bg_image_url || null,
     media: localMedia,
     created_at: new Date().toISOString(),
   };

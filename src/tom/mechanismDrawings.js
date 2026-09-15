@@ -546,62 +546,60 @@ export function generateMechanismBlueprint({ name = "Mechanism Model", category 
 `);
 }
 
+export const CLEAN_MECHANISM_PLACEHOLDER = encodeSvg(`
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 320" width="100%" height="100%">
+  <defs>
+    <linearGradient id="cleanGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#111827"/>
+      <stop offset="100%" stop-color="#090d16"/>
+    </linearGradient>
+  </defs>
+  <rect width="100%" height="100%" fill="url(#cleanGrad)"/>
+  <g transform="translate(260, 140)">
+    <circle r="48" fill="rgba(251, 191, 36, 0.08)" stroke="#fbbf24" stroke-width="3"/>
+    <circle r="22" fill="rgba(56, 189, 248, 0.12)" stroke="#38bdf8" stroke-width="2.5"/>
+    <line x1="-36" y1="0" x2="36" y2="0" stroke="#fbbf24" stroke-width="3" stroke-linecap="round"/>
+    <line x1="0" y1="-36" x2="0" y2="36" stroke="#fbbf24" stroke-width="3" stroke-linecap="round"/>
+    <circle r="8" fill="#fbbf24"/>
+  </g>
+  <text x="260" y="235" fill="#94a3b8" font-family="'DM Sans', sans-serif" font-size="15" font-weight="600" text-anchor="middle">Mechanism Project</text>
+</svg>
+`);
+
 /**
  * Robustly resolve an authentic cover/poster image for any mechanism.
- * NEVER returns empty.
+ * Uses student uploaded photo or image URL link first.
  */
 export function getMechanismPoster(mechanism) {
-  if (!mechanism) return FOUR_BAR_BLUEPRINT;
+  if (!mechanism) return null;
 
-  // 1. Direct photo / user-uploaded image / thumbnail
+  // 1. Direct photo / user-uploaded image / thumbnail link
   const direct =
     mechanism.cover_image ||
     mechanism.preview_image_url ||
     mechanism.image_url ||
-    mechanism.thumbnail;
+    mechanism.thumbnail ||
+    mechanism.image ||
+    mechanism.background_image ||
+    mechanism.bg_image_url;
   if (direct && typeof direct === "string" && direct.trim() !== "" && direct !== "test") {
-    return direct;
+    if (!direct.startsWith("data:image/svg+xml")) {
+      return direct;
+    }
   }
 
   // 2. Attached media image
   if (Array.isArray(mechanism.media)) {
     const mediaImg = mechanism.media.find(
       (m) =>
-        m.file_type === "image" ||
-        m.file_type === "drawing" ||
-        (m.file_url && /\.(jpg|jpeg|png|webp|gif|svg)($|\?)/i.test(m.file_url))
+        (m.file_type === "image" ||
+          m.file_type === "drawing" ||
+          (m.file_url && /\.(jpg|jpeg|png|webp|gif)($|\?)/i.test(m.file_url))) &&
+        !m.file_url?.startsWith("data:image/svg+xml")
     );
     if (mediaImg?.file_url) return mediaImg.file_url;
   }
 
-  // 3. Category & name pattern matching for authentic engineering blueprints
-  const name = (mechanism.name || "").toLowerCase();
-  const cat = (mechanism.category || "").toLowerCase();
-
-  if (name.includes("pick") || name.includes("place") || mechanism.mechanismType === "pick-and-place") {
-    return PICK_AND_PLACE_BLUEPRINT;
-  }
-  if (name.includes("gear") || cat.includes("gear")) {
-    return GEAR_TRAIN_BLUEPRINT;
-  }
-  if (name.includes("cam") || cat.includes("cam")) {
-    return CAM_FOLLOWER_BLUEPRINT;
-  }
-  if (name.includes("steering") || cat.includes("steering")) {
-    return STEERING_BLUEPRINT;
-  }
-  if (name.includes("slider") || cat.includes("slider")) {
-    return SLIDER_CRANK_BLUEPRINT;
-  }
-  if (name.includes("four-bar") || name.includes("linkage") || cat.includes("four-bar") || cat.includes("linkage")) {
-    return FOUR_BAR_BLUEPRINT;
-  }
-
-  // 4. Dynamic CAD schematic generated specifically with the mechanism's metadata
-  return generateMechanismBlueprint({
-    name: mechanism.name,
-    category: mechanism.category,
-    dof: mechanism.degrees_of_freedom ?? 1,
-    student: mechanism.student_name,
-  });
+  return null;
 }
+

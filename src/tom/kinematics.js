@@ -34,29 +34,24 @@ export function getCircleIntersection(first, second, firstRadius, secondRadius) 
   };
 }
 
+function toValidNum(val, fallback) {
+  if (val === undefined || val === null || val === "") return fallback;
+  const n = Number(val);
+  return Number.isFinite(n) ? n : fallback;
+}
+
 /**
  * Grübler / Kutzbach mobility equation for planar mechanisms:
  * DOF = 3(L - 1) - 2J - H
  */
 export function calculateDof(mechanism) {
-  const links = Number(
-    mechanism?.dofInputs?.links ??
-    mechanism?.links ??
-    mechanism?.num_links ??
-    4
-  );
-  const joints = Number(
-    mechanism?.dofInputs?.joints ??
-    mechanism?.joints ??
-    mechanism?.num_joints ??
-    4
-  );
-  const higherPairs = Number(
-    mechanism?.dofInputs?.higherPairs ??
-    mechanism?.higherPairs ??
-    mechanism?.higher_pairs ??
-    0
-  );
+  const rawLinks = mechanism?.dofInputs?.links ?? mechanism?.links ?? mechanism?.num_links;
+  const rawJoints = mechanism?.dofInputs?.joints ?? mechanism?.joints ?? mechanism?.num_joints;
+  const rawHigher = mechanism?.dofInputs?.higherPairs ?? mechanism?.higherPairs ?? mechanism?.higher_pairs;
+
+  const links = toValidNum(rawLinks, 4);
+  const joints = toValidNum(rawJoints, 4);
+  const higherPairs = toValidNum(rawHigher, 0);
 
   const result = 3 * (links - 1) - 2 * joints - higherPairs;
 
@@ -69,6 +64,33 @@ export function calculateDof(mechanism) {
     higherPairs,
   };
 }
+
+/**
+ * Grashof Criterion for planar four-bar linkages:
+ * s: shortest link, l: longest link, p, q: intermediate links
+ * If s + l <= p + q: Grashof condition satisfied (at least one link can revolve 360°)
+ */
+export function analyzeGrashof(lengths) {
+  if (!lengths || !Array.isArray(lengths) || lengths.length < 4) return null;
+  const sorted = [...lengths].map(Number).filter(n => Number.isFinite(n) && n > 0).sort((a, b) => a - b);
+  if (sorted.length !== 4) return null;
+  const [s, p, q, l] = sorted;
+  const sumShortLong = s + l;
+  const sumOthers = p + q;
+  const isGrashof = sumShortLong <= sumOthers;
+
+  return {
+    isGrashof,
+    s, l, p, q,
+    sumShortLong,
+    sumOthers,
+    diff: sumOthers - sumShortLong,
+    classification: isGrashof
+      ? (sumShortLong < sumOthers ? "Class I (Grashof: Full 360° input crank rotation possible)" : "Special Grashof (Change-point condition: Toggle positions possible)")
+      : "Class II (Non-Grashof: Triple-Rocker, all links oscillate)",
+  };
+}
+
 
 export function analyzeMechanism(mechanism) {
   const calculation = calculateDof(mechanism);

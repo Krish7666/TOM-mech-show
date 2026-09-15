@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from "react";
 import { TOM_CATEGORIES, tomCategoryMeta } from "./tomConstants";
 import { fetchApprovedMechanisms, fetchPendingMechanisms, submitMechanism, approveMechanism, rejectMechanism } from "./tomApi";
 import { isSupabaseConfigured } from "../lib/supabaseClient";
-import { getMechanismPoster } from "./mechanismDrawings";
 import MechanismCard from "./MechanismCard.jsx";
 import MechanismForm from "./MechanismForm.jsx";
 import MechanismDetail from "./MechanismDetail.jsx";
@@ -22,6 +21,7 @@ export default function TomShowcase({ isAdmin, onRequestAdminLogin, onRequestAdd
   const [pending, setPending] = useState([]);
   const [viewMode, setViewMode] = useState("grid"); // "grid" | "table"
   const [sortBy, setSortBy] = useState("newest"); // "newest" | "name" | "dof"
+  const [dofFilter, setDofFilter] = useState("all"); // "all" | "1" | "multi" | "structure"
 
   async function loadApproved() {
     setLoading(true);
@@ -50,13 +50,56 @@ export default function TomShowcase({ isAdmin, onRequestAdminLogin, onRequestAdd
     run();
   }, [isAdmin]);
 
+  useEffect(() => {
+    function parseHash() {
+      const hash = window.location.hash.replace(/^#\/?/, "");
+      if (hash.startsWith("mechanism/")) {
+        const id = hash.replace("mechanism/", "");
+        if (id) setSelectedId(id);
+      } else if (hash === "repository" || hash === "models") {
+        setSelectedId(null);
+      }
+    }
+    parseHash();
+    window.addEventListener("hashchange", parseHash);
+    return () => window.removeEventListener("hashchange", parseHash);
+  }, []);
+
+  useEffect(() => {
+    const currentHash = window.location.hash.replace(/^#\/?/, "");
+    if (selectedId) {
+      if (currentHash !== `mechanism/${selectedId}`) {
+        window.location.hash = `mechanism/${selectedId}`;
+      }
+    } else if (currentHash.startsWith("mechanism/")) {
+      window.location.hash = "repository";
+    }
+  }, [selectedId]);
+
+  function handleSelectMechanism(id) {
+    setSelectedId(id);
+  }
+
   const sortedAndFiltered = useMemo(() => {
     const q = search.trim().toLowerCase();
     const list = mechanisms.filter((m) => {
       if (activeCat && m.category !== activeCat) return false;
+      if (dofFilter === "1" && (m.degrees_of_freedom ?? 1) !== 1) return false;
+      if (dofFilter === "multi" && (m.degrees_of_freedom ?? 1) <= 1) return false;
+      if (dofFilter === "structure" && (m.degrees_of_freedom ?? 1) > 0) return false;
       if (!q) return true;
-      return [m.name, m.category, m.student_name, m.college]
-        .some((v) => (v || "").toLowerCase().includes(q));
+      return [
+        m.name,
+        m.category,
+        m.student_name,
+        m.team_members,
+        m.short_description,
+        m.detailed_description,
+        m.applications,
+        m.working_principle,
+        m.college,
+        m.academic_year,
+      ].some((v) => (v || "").toLowerCase().includes(q));
     });
 
     if (sortBy === "name") {
@@ -66,7 +109,7 @@ export default function TomShowcase({ isAdmin, onRequestAdminLogin, onRequestAdd
       return [...list].sort((a, b) => (b.degrees_of_freedom ?? 1) - (a.degrees_of_freedom ?? 1));
     }
     return list;
-  }, [mechanisms, activeCat, search, sortBy]);
+  }, [mechanisms, activeCat, search, sortBy, dofFilter]);
 
   function flash(msg) {
     setSuccessMsg(msg);
@@ -120,7 +163,7 @@ export default function TomShowcase({ isAdmin, onRequestAdminLogin, onRequestAdd
       <MechanismDetail
         id={selectedId}
         isAdmin={isAdmin}
-        onBack={() => setSelectedId(null)}
+        onBack={() => handleSelectMechanism(null)}
         onChanged={() => { loadApproved(); if (isAdmin) loadPending(); }}
       />
     );
@@ -138,7 +181,7 @@ export default function TomShowcase({ isAdmin, onRequestAdminLogin, onRequestAdd
           Theory of Machines <span>Cloud Repository</span>
         </h1>
         <p className="hero-copy">
-          The central repository for kinematic mechanisms, interactive simulations, and student projects from NMIET Mechanical Engineering — complete with live motion animations, Grübler DOF calculations, technical drawings, demonstration videos, and CAD models.
+          The central repository for kinematic mechanisms, interactive simulations, and student projects from NMIET Mechanical Engineering — complete with live motion animations, mobility &amp; DOF calculations, technical drawings, demonstration videos, and CAD models.
         </p>
       </div>
 
@@ -200,8 +243,9 @@ export default function TomShowcase({ isAdmin, onRequestAdminLogin, onRequestAdd
         <div className="category-row">
           <button type="button"
             className={`category-pill${activeCat ? "" : " category-pill--active"}`}
+            style={{ "--pill-color": "#38bdf8", "--pill-bg": "rgba(56, 189, 248, 0.18)", "--pill-border": "rgba(56, 189, 248, 0.45)" }}
             onClick={() => setActiveCat("")}>
-            All
+            <span>✨</span><span>All</span>
           </button>
           {TOM_CATEGORIES.map((cat) => {
             const meta = tomCategoryMeta(cat);
@@ -231,6 +275,16 @@ export default function TomShowcase({ isAdmin, onRequestAdminLogin, onRequestAdd
         </div>
 
         <div className="repository-meta-bar__right">
+          <label className="sort-label">
+            <span>Movement:</span>
+            <select value={dofFilter} onChange={(e) => setDofFilter(e.target.value)} className="sort-select">
+              <option value="all">All Movements</option>
+              <option value="1">Controlled Motion (1-Way)</option>
+              <option value="multi">Flexible Motion (Multi-Way)</option>
+              <option value="structure">Fixed Structure</option>
+            </select>
+          </label>
+
           <label className="sort-label">
             <span>Sort by:</span>
             <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} className="sort-select">
@@ -269,7 +323,7 @@ export default function TomShowcase({ isAdmin, onRequestAdminLogin, onRequestAdd
           ) : (
             pending.map((m) => (
               <div key={m.id} className="tom-pending-row">
-                <button type="button" className="tom-pending-row__name" onClick={() => setSelectedId(m.id)}>
+                <button type="button" className="tom-pending-row__name" onClick={() => handleSelectMechanism(m.id)}>
                   {m.name} <span className="tom-pending-row__cat">· {m.category}</span>
                 </button>
                 <span className="tom-pending-row__student">{m.student_name}</span>
@@ -329,38 +383,62 @@ export default function TomShowcase({ isAdmin, onRequestAdminLogin, onRequestAdd
                   <tr>
                     <th>Mechanism Name</th>
                     <th>Category</th>
-                    <th>Planar DOF (F)</th>
-                    <th>Links (L)</th>
-                    <th>Joints (J)</th>
+                    <th>Movement</th>
+                    <th>Parts</th>
+                    <th>Joints</th>
                     <th>Student / Contributor</th>
                     <th>Institute</th>
                     <th style={{ textAlign: "right" }}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {sortedAndFiltered.map((m) => (
-                    <tr key={m.id} onClick={() => setSelectedId(m.id)} style={{ cursor: "pointer" }}>
-                      <td>
-                        <div className="table-mechanism-cell">
-                          <img
-                            src={getMechanismPoster(m)}
-                            alt={m.name}
-                            style={{ width: 42, height: 42, borderRadius: 8, objectFit: "cover", flexShrink: 0, border: "1px solid var(--border)" }}
-                          />
-                          <div>
-                            <strong>{m.name}</strong>
-                            <span className="table-subtext">{m.short_description?.slice(0, 48)}...</span>
+                  {sortedAndFiltered.map((m) => {
+                    const catMeta = tomCategoryMeta(m.category);
+                    return (
+                      <tr key={m.id} onClick={() => handleSelectMechanism(m.id)} style={{ cursor: "pointer" }}>
+                        <td>
+                          <div className="table-mechanism-cell">
+                            {m.cover_image || m.preview_image_url || m.image_url || m.image ? (
+                              <img
+                                src={m.cover_image || m.preview_image_url || m.image_url || m.image}
+                                alt={m.name}
+                                onError={(e) => {
+                                  e.currentTarget.style.display = "none";
+                                }}
+                                style={{ width: 42, height: 42, borderRadius: 8, objectFit: "cover", flexShrink: 0, border: "1px solid var(--border)" }}
+                              />
+                            ) : (
+                              <div style={{
+                                width: 42, height: 42, borderRadius: 8, display: "grid", placeItems: "center",
+                                background: `${catMeta.color}22`, border: `1px solid ${catMeta.color}45`,
+                                fontSize: "1.2rem", flexShrink: 0
+                              }}>
+                                {catMeta.icon}
+                              </div>
+                            )}
+                            <div>
+                              <strong>{m.name}</strong>
+                              <span className="table-subtext">{m.short_description?.slice(0, 48)}...</span>
+                            </div>
                           </div>
-                        </div>
-                      </td>
-                      <td>
-                        <span className="category-pill" style={{ padding: "4px 10px", fontSize: "0.72rem" }}>
-                          {m.category}
-                        </span>
-                      </td>
+                        </td>
+                        <td>
+                          <span
+                            className="category-pill"
+                            style={{
+                              padding: "4px 10px",
+                              fontSize: "0.72rem",
+                              "--pill-color": catMeta.color,
+                              "--pill-bg": `${catMeta.color}22`,
+                              "--pill-border": `${catMeta.color}55`,
+                            }}
+                          >
+                            <span>{catMeta.icon}</span> <span>{m.category}</span>
+                          </span>
+                        </td>
                       <td>
                         <span className="table-dof-badge">
-                          F = {m.degrees_of_freedom ?? 1}
+                          {m.degrees_of_freedom ?? 1} DOF
                         </span>
                       </td>
                       <td>{m.num_links ?? 4}</td>
@@ -374,14 +452,15 @@ export default function TomShowcase({ isAdmin, onRequestAdminLogin, onRequestAdd
                           style={{ padding: "6px 14px", minHeight: 34, fontSize: "0.8rem" }}
                           onClick={(e) => {
                             e.stopPropagation();
-                            setSelectedId(m.id);
+                            handleSelectMechanism(m.id);
                           }}
                         >
                           Explore →
                         </button>
                       </td>
-                    </tr>
-                  ))}
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -392,7 +471,7 @@ export default function TomShowcase({ isAdmin, onRequestAdminLogin, onRequestAdd
                   key={m.id}
                   mechanism={m}
                   mediaCount={m.tom_mechanism_media?.[0]?.count}
-                  onView={setSelectedId}
+                  onView={handleSelectMechanism}
                 />
               ))}
             </section>

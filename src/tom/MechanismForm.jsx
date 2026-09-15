@@ -1,18 +1,12 @@
 import { useState } from "react";
-import { EMPTY_MECHANISM_FORM, TOM_CATEGORIES, ACCEPT } from "./tomConstants";
-import { calculateDof } from "./kinematics.js";
-
-const FILE_SLOTS = [
-  { key: "image",    label: "Photo / CAD Render",       hint: "Image of prototype, CAD screenshot, or drawing" },
-  { key: "video",    label: "Demonstration Video",      hint: "Short video clip showing motion" },
-  { key: "document", label: "Project Report / CAD File", hint: "PDF synopsis, datasheet, or 3D CAD/STEP file" },
-];
+import { EMPTY_MECHANISM_FORM, ACCEPT } from "./tomConstants";
 
 export default function MechanismForm({ onCancel, onSubmit, submitting, formError }) {
   const [form, setForm] = useState(EMPTY_MECHANISM_FORM);
   const [files, setFiles] = useState({});
   const [imagePreview, setImagePreview] = useState("");
   const [imageUrlInput, setImageUrlInput] = useState("");
+  const [bgImageUrl, setBgImageUrl] = useState("");
 
   function handleChange(e) {
     const { name, value } = e.target;
@@ -22,7 +16,7 @@ export default function MechanismForm({ onCancel, onSubmit, submitting, formErro
   function handleFileChange(slot, fileList) {
     setFiles((cur) => ({ ...cur, [slot]: fileList }));
 
-    if ((slot === "image" || slot === "drawing") && fileList && fileList[0]) {
+    if (slot === "image" && fileList && fileList[0]) {
       const file = fileList[0];
       const reader = new FileReader();
       reader.onload = (e) => {
@@ -50,7 +44,7 @@ export default function MechanismForm({ onCancel, onSubmit, submitting, formErro
           const ctx = canvas.getContext("2d");
           if (ctx) {
             ctx.drawImage(img, 0, 0, width, height);
-            setImagePreview(canvas.toDataURL("image/jpeg", 0.82));
+            setImagePreview(canvas.toDataURL("image/jpeg", 0.85));
           } else {
             setImagePreview(rawData);
           }
@@ -70,31 +64,38 @@ export default function MechanismForm({ onCancel, onSubmit, submitting, formErro
     }
   }
 
-  const links = Number(form.num_links) || 0;
-  const joints = Number(form.num_joints) || 0;
-  const higherPairs = Number(form.higher_pairs) || 0;
-  const dofCalc = calculateDof({ links, joints, higherPairs });
-  const dof = dofCalc.result;
-
   function handleSubmit(e) {
     e.preventDefault();
     const finalCover = imagePreview || imageUrlInput.trim() || null;
+    const finalBg = bgImageUrl.trim() || null;
     const payload = {
       ...form,
+      name: form.name.trim(),
+      category: form.category || "Four-bar",
       student_name: form.student_name.trim(),
-      team_members: form.student_name.trim(),
+      team_members: form.team_members?.trim() || form.student_name.trim(),
+      academic_year: form.academic_year || "SE Mech",
       short_description: form.description
         ? (form.description.slice(0, 140) + (form.description.length > 140 ? "..." : ""))
-        : "",
+        : "Student mechanism project.",
       detailed_description: form.description || "",
       working_principle: form.description || "",
-      num_links: links || null,
-      num_joints: joints || null,
-      degrees_of_freedom: dof,
-      external_links: form.video_url ? [form.video_url.trim()] : [],
+      num_links: 4,
+      num_joints: 4,
+      higher_pairs: 0,
+      degrees_of_freedom: 1,
+      animation_url: form.animation_url ? form.animation_url.trim() : null,
+      virtual_mechanism_url: form.virtual_mechanism_url ? form.virtual_mechanism_url.trim() : null,
+      external_links: [
+        ...(form.video_url ? [form.video_url.trim()] : []),
+        ...(form.animation_url ? [form.animation_url.trim()] : []),
+        ...(form.virtual_mechanism_url ? [form.virtual_mechanism_url.trim()] : []),
+      ],
       college: "NMIET",
       department: "Mechanical Engineering",
       cover_image: finalCover,
+      background_image: finalBg,
+      bg_image_url: finalBg,
     };
     onSubmit(payload, files);
   }
@@ -104,142 +105,62 @@ export default function MechanismForm({ onCancel, onSubmit, submitting, formErro
       <div className="project-form__header">
         <div>
           <p className="project-form__eyebrow">TOM Mechanism Showcase · NMIET</p>
-          <h2 className="project-form__title">Add Your Mechanism</h2>
+          <h2 className="project-form__title">Submit Your Mechanism</h2>
         </div>
         <p className="project-form__hint">
-          Quick submission for NMIET Mechanical Engineering students.
+          Share your mechanical engineering mechanism model with the showcase.
         </p>
       </div>
 
-      <h3 className="tom-form__section-title">1. Basic Details</h3>
+      <h3 className="tom-form__section-title">1. Mechanism Information</h3>
       <div className="project-form__grid">
-        <label className="field">
+        <label className="field field--wide" style={{ gridColumn: "1 / -1" }}>
           <span className="field__label">Mechanism Name *</span>
           <input
             className="field__control"
             name="name"
-            placeholder="e.g. Four-Bar Linkage / Whitworth Quick Return"
+            placeholder="e.g. Four-Bar Linkage / Quick Return / Gearbox"
             value={form.name}
             onChange={handleChange}
             required
           />
         </label>
 
-        <label className="field">
-          <span className="field__label">Category *</span>
-          <select
-            className="field__control"
-            name="category"
-            value={form.category}
-            onChange={handleChange}
-            required
-          >
-            {TOM_CATEGORIES.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
-        </label>
-
         <label className="field field--wide" style={{ gridColumn: "1 / -1" }}>
-          <span className="field__label">Mechanism Description &amp; Working Principle</span>
+          <span className="field__label">What does this mechanism do? (Description)</span>
           <textarea
             className="field__control field__control--textarea"
             name="description"
             rows={3}
-            placeholder="Explain what the mechanism does, how it transforms motion, and its key practical applications..."
+            placeholder="Describe what the mechanism does, how it moves, and where it is used..."
             value={form.description}
             onChange={handleChange}
           />
         </label>
       </div>
 
-      <h3 className="tom-form__section-title">2. Kinematic Mobility</h3>
-      <div className="project-form__grid">
-        <label className="field">
-          <span className="field__label">Number of Links (L)</span>
-          <input
-            className="field__control"
-            name="num_links"
-            type="number"
-            min="1"
-            value={form.num_links}
-            onChange={handleChange}
-          />
-        </label>
-
-        <label className="field">
-          <span className="field__label">Lower Pairs / Joints (J)</span>
-          <input
-            className="field__control"
-            name="num_joints"
-            type="number"
-            min="0"
-            value={form.num_joints}
-            onChange={handleChange}
-          />
-        </label>
-
-        <label className="field">
-          <span className="field__label">Higher Pairs (H)</span>
-          <input
-            className="field__control"
-            name="higher_pairs"
-            type="number"
-            min="0"
-            value={form.higher_pairs}
-            onChange={handleChange}
-          />
-        </label>
-
-        <div className="field" style={{ justifyContent: "center" }}>
-          <span className="field__label">Calculated Mobility (DOF)</span>
-          <div style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: "8px",
-            padding: "10px 14px",
-            borderRadius: "12px",
-            background: "rgba(251, 191, 36, 0.08)",
-            border: "1px solid rgba(251, 191, 36, 0.25)",
-            fontFamily: "var(--font-mono, monospace)",
-            fontSize: "0.85rem",
-            color: "var(--gold, #fbbf24)"
-          }}>
-            <strong>DOF = {dof}</strong>
-            <span style={{ fontSize: "0.75rem", color: "var(--muted, #94a3b8)" }}>
-              {dof === 1
-                ? "(1 Input constrained motion)"
-                : dof > 1
-                ? `(${dof} Inputs needed)`
-                : "(Locked frame/structure)"}
-            </span>
-          </div>
-        </div>
-      </div>
-
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "0.5rem", marginTop: "1rem", marginBottom: "0.5rem" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "0.5rem", marginTop: "1.2rem", marginBottom: "0.5rem" }}>
         <h3 className="tom-form__section-title" style={{ margin: 0, border: "none", paddingTop: 0 }}>
-          3. Student Members
+          2. Student / Team Members
         </h3>
         <span style={{ fontSize: "0.8rem", color: "var(--accent, #6366f1)", background: "rgba(99, 102, 241, 0.1)", border: "1px solid rgba(99, 102, 241, 0.2)", padding: "0.25rem 0.75rem", borderRadius: "9999px", fontWeight: 500 }}>
           🏛 NMIET · Mechanical Engineering
         </span>
       </div>
+
       <div className="project-form__grid">
         <label className="field field--wide" style={{ gridColumn: "1 / -1" }}>
-          <span className="field__label">Student Member(s) *</span>
+          <span className="field__label">Student / Contributor Name(s) *</span>
           <input
             className="field__control"
             name="student_name"
-            placeholder="e.g. Aarav Patil, Sakshi Verma, Rahul Shinde (All members in one entry)"
+            placeholder="e.g. Aarav Patil, Sakshi Verma, Rahul Shinde"
             value={form.student_name}
             onChange={handleChange}
             required
           />
-          <span className="field__hint" style={{ fontSize: "0.75rem", color: "var(--muted, #94a3b8)", marginTop: "4px" }}>
-            All student project members in a single entry (comma-separated for group projects).
+          <span className="field__hint" style={{ fontSize: "0.75rem", color: "var(--muted)", marginTop: "4px" }}>
+            Add student name(s) or team members who worked on this model.
           </span>
         </label>
 
@@ -248,103 +169,245 @@ export default function MechanismForm({ onCancel, onSubmit, submitting, formErro
           <input
             className="field__control"
             name="academic_year"
-            placeholder="e.g. SE Mech / TE Mech"
+            placeholder="e.g. SE Mech / TE Mech / BE Mech"
             value={form.academic_year}
             onChange={handleChange}
           />
         </label>
 
         <label className="field">
-          <span className="field__label">Video / Demo URL (Optional)</span>
+          <span className="field__label">Video Demo URL (Optional)</span>
           <input
             className="field__control"
             name="video_url"
-            placeholder="YouTube, Google Drive, or Loom link"
+            placeholder="YouTube link or Drive video link"
             value={form.video_url}
             onChange={handleChange}
           />
         </label>
       </div>
 
-      <h3 className="tom-form__section-title">4. Mechanism Image / Poster &amp; Project Files</h3>
-      <p style={{ margin: "0 0 12px 0", fontSize: "0.82rem", color: "var(--muted)" }}>
-        Upload a photo or CAD screenshot of your mechanism. It will serve directly as the showcase thumbnail poster in the repository.
+      <h3 className="tom-form__section-title" style={{ marginTop: "1.2rem" }}>
+        3. Thumbnail Photo / Image
+      </h3>
+      <p style={{ margin: "0 0 14px 0", fontSize: "0.86rem", color: "var(--muted)" }}>
+        Add a photo of your mechanism. This image will directly become the thumbnail card in the showcase.
       </p>
 
-      {imagePreview && (
+      {/* Live Thumbnail Preview */}
+      {(imagePreview || bgImageUrl) && (
         <div style={{
           display: "flex",
           gap: "16px",
           alignItems: "center",
-          padding: "12px 16px",
-          background: "rgba(56, 189, 248, 0.08)",
-          border: "1px solid rgba(56, 189, 248, 0.3)",
-          borderRadius: "14px",
-          marginBottom: "16px"
+          padding: "14px 18px",
+          background: bgImageUrl
+            ? `linear-gradient(rgba(12, 16, 26, 0.78), rgba(12, 16, 26, 0.94)), url(${bgImageUrl}) center/cover no-repeat`
+            : "rgba(251, 191, 36, 0.08)",
+          border: "1px solid rgba(251, 191, 36, 0.3)",
+          borderRadius: "16px",
+          marginBottom: "16px",
+          position: "relative",
+          overflow: "hidden"
         }}>
-          <img
-            src={imagePreview}
-            alt="Thumbnail preview"
-            style={{
-              width: "100px",
-              height: "70px",
-              borderRadius: "8px",
-              objectFit: "cover",
-              border: "1px solid rgba(255,255,255,0.2)"
-            }}
-          />
+          {imagePreview && (
+            <img
+              src={imagePreview}
+              alt="Thumbnail preview"
+              style={{
+                width: "110px",
+                height: "75px",
+                borderRadius: "10px",
+                objectFit: "cover",
+                border: "1px solid rgba(255,255,255,0.2)",
+                boxShadow: "0 4px 12px rgba(0,0,0,0.4)"
+              }}
+            />
+          )}
           <div style={{ flex: 1 }}>
-            <span style={{ display: "inline-block", fontSize: "0.72rem", fontWeight: 700, color: "#34d399", background: "rgba(52, 211, 153, 0.15)", padding: "2px 8px", borderRadius: "999px", marginBottom: "4px" }}>
-              ✓ Repository Thumbnail Active
-            </span>
-            <p style={{ margin: 0, fontSize: "0.8rem", color: "#f8fafc" }}>
-              This image is optimized and will be displayed as the card poster in the repository.
+            <strong style={{ display: "block", fontSize: "0.9rem", color: "#f8fafc", marginBottom: "4px" }}>
+              ✓ Thumbnail Ready {bgImageUrl && "+ Background Set"}
+            </strong>
+            <p style={{ margin: 0, fontSize: "0.82rem", color: "var(--muted)" }}>
+              {imagePreview ? "Mechanism image is set." : "Card background is set."}
+              {bgImageUrl && " Custom background backdrop applied."}
             </p>
           </div>
           <button
             type="button"
             className="button button--ghost"
-            style={{ padding: "4px 10px", fontSize: "0.75rem", height: "auto" }}
+            style={{ padding: "6px 14px", fontSize: "0.78rem", height: "auto" }}
             onClick={() => {
               setImagePreview("");
               setImageUrlInput("");
+              setBgImageUrl("");
+              setFiles((cur) => {
+                const copy = { ...cur };
+                delete copy.image;
+                return copy;
+              });
             }}
           >
-            ✕ Remove
+            ✕ Reset
           </button>
         </div>
       )}
 
-      <div className="tom-form__uploads">
-        {FILE_SLOTS.map((slot) => (
-          <label key={slot.key} className="field tom-upload">
-            <span className="field__label">{slot.label}</span>
-            <span className="tom-upload__hint">{slot.hint}</span>
-            <input
-              className="tom-upload__input"
-              type="file"
-              multiple={slot.key !== "image"}
-              accept={ACCEPT[slot.key]}
-              onChange={(e) => handleFileChange(slot.key, e.target.files)}
-            />
-            {files[slot.key]?.length > 0 && (
-              <span className="tom-upload__count">{files[slot.key].length} file(s) selected</span>
-            )}
-          </label>
-        ))}
+      <div className="project-form__grid">
+        <label className="field">
+          <span className="field__label">Upload Photo File</span>
+          <input
+            className="field__control"
+            type="file"
+            accept="image/*"
+            onChange={(e) => handleFileChange("image", e.target.files)}
+          />
+          <span className="field__hint" style={{ fontSize: "0.74rem", color: "var(--muted)" }}>
+            Select a photo from your computer or phone.
+          </span>
+        </label>
+
+        <label className="field">
+          <span className="field__label">Or Paste Image Link / URL</span>
+          <input
+            className="field__control"
+            placeholder="https://... direct image link"
+            value={imageUrlInput}
+            onChange={handleUrlChange}
+          />
+          <span className="field__hint" style={{ fontSize: "0.74rem", color: "var(--muted)" }}>
+            Paste a direct link to any mechanism photo online.
+          </span>
+        </label>
+
+        <label className="field field--wide" style={{ gridColumn: "1 / -1" }}>
+          <span className="field__label">Thumbnail Background Image Link / URL (Optional)</span>
+          <input
+            className="field__control"
+            name="background_image"
+            placeholder="https://... direct image link for thumbnail background backdrop"
+            value={bgImageUrl}
+            onChange={(e) => setBgImageUrl(e.target.value)}
+          />
+          <span className="field__hint" style={{ fontSize: "0.74rem", color: "var(--muted)" }}>
+            Paste an image link to use as the background backdrop for your mechanism's card in the showcase.
+          </span>
+        </label>
       </div>
 
-      <label className="field" style={{ marginTop: "12px" }}>
-        <span className="field__label">Or Paste Image URL (Optional)</span>
-        <input
-          className="field__control"
-          placeholder="https://... direct image link"
-          value={imageUrlInput}
-          onChange={handleUrlChange}
-        />
-      </label>
+      <h3 className="tom-form__section-title" style={{ marginTop: "1.4rem" }}>
+        4. Custom Animation &amp; Virtual Mechanism (Optional)
+      </h3>
+      <p style={{ margin: "0 0 14px 0", fontSize: "0.86rem", color: "var(--muted)" }}>
+        If you created your own animation video, GIF, or an online interactive virtual simulation of this mechanism, you can upload or link it below.
+      </p>
 
-      <div className="project-form__footer">
+      {/* Live Animation & Virtual Mechanism Status Badge */}
+      {(files.animation?.[0] || form.animation_url || files.virtual_mechanism?.[0] || form.virtual_mechanism_url) && (
+        <div style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: "8px",
+          padding: "12px 16px",
+          background: "linear-gradient(135deg, rgba(56, 189, 248, 0.08), rgba(168, 85, 247, 0.06))",
+          border: "1px solid rgba(56, 189, 248, 0.3)",
+          borderRadius: "14px",
+          marginBottom: "16px",
+        }}>
+          {(files.animation?.[0] || form.animation_url) && (
+            <div style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "0.84rem", color: "#38bdf8" }}>
+              <span>🌀</span>
+              <span>
+                <strong>Animation Attached:</strong> {files.animation?.[0]?.name || form.animation_url}
+              </span>
+            </div>
+          )}
+          {(files.virtual_mechanism?.[0] || form.virtual_mechanism_url) && (
+            <div style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "0.84rem", color: "#34d399" }}>
+              <span>🔬</span>
+              <span>
+                <strong>Virtual Mechanism Attached:</strong> {files.virtual_mechanism?.[0]?.name || form.virtual_mechanism_url}
+              </span>
+            </div>
+          )}
+        </div>
+      )}
+
+      <div className="project-form__grid">
+        <label className="field">
+          <span className="field__label">Upload Custom Animation File</span>
+          <input
+            className="field__control"
+            type="file"
+            accept={ACCEPT.animation}
+            onChange={(e) => handleFileChange("animation", e.target.files)}
+          />
+          <span className="field__hint" style={{ fontSize: "0.74rem", color: "var(--muted)" }}>
+            Upload an animated GIF, MP4, or WebM showing your mechanism moving.
+          </span>
+        </label>
+
+        <label className="field">
+          <span className="field__label">Or Paste Animation Link / URL</span>
+          <input
+            className="field__control"
+            name="animation_url"
+            placeholder="https://... direct link to GIF, MP4, or animation video"
+            value={form.animation_url || ""}
+            onChange={handleChange}
+          />
+          <span className="field__hint" style={{ fontSize: "0.74rem", color: "var(--muted)" }}>
+            Direct link to your animated motion video or GIF online.
+          </span>
+        </label>
+
+        <label className="field">
+          <span className="field__label">Virtual Mechanism / Simulation Link</span>
+          <input
+            className="field__control"
+            name="virtual_mechanism_url"
+            placeholder="e.g. GeoGebra, Desmos, Tinkercad, or web simulation URL"
+            value={form.virtual_mechanism_url || ""}
+            onChange={handleChange}
+          />
+          <span className="field__hint" style={{ fontSize: "0.74rem", color: "var(--muted)" }}>
+            Link to any online virtual lab, 3D model viewer, or interactive simulation.
+          </span>
+        </label>
+
+        <label className="field">
+          <span className="field__label">Or Upload Virtual Mechanism File</span>
+          <input
+            className="field__control"
+            type="file"
+            accept={ACCEPT.virtual_mechanism}
+            onChange={(e) => handleFileChange("virtual_mechanism", e.target.files)}
+          />
+          <span className="field__hint" style={{ fontSize: "0.74rem", color: "var(--muted)" }}>
+            Upload an interactive HTML file, 3D model (GLTF/GLB/STEP), or simulation file.
+          </span>
+        </label>
+      </div>
+
+      <h3 className="tom-form__section-title" style={{ marginTop: "1.4rem" }}>
+        5. Optional Project Document / CAD File
+      </h3>
+      <div className="project-form__grid">
+        <label className="field field--wide" style={{ gridColumn: "1 / -1" }}>
+          <span className="field__label">Project Report or CAD Model (Optional)</span>
+          <input
+            className="field__control"
+            type="file"
+            accept={ACCEPT.document}
+            onChange={(e) => handleFileChange("document", e.target.files)}
+          />
+          <span className="field__hint" style={{ fontSize: "0.74rem", color: "var(--muted)" }}>
+            Upload PDF report, PPT synopsis, or 3D STEP/CAD model if available.
+          </span>
+        </label>
+      </div>
+
+      <div className="project-form__footer" style={{ marginTop: "1.8rem" }}>
         <div className="project-form__message" role="status" aria-live="polite">{formError}</div>
         <div className="project-form__actions">
           <button type="button" className="button button--ghost" onClick={onCancel} disabled={submitting}>

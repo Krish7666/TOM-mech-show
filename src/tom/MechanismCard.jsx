@@ -1,60 +1,160 @@
-import { useRef } from "react";
+import { useState } from "react";
 import { tomCategoryMeta } from "./tomConstants";
-import { getMechanismPoster } from "./mechanismDrawings";
 
-// Reuses the project card's 3D tilt feel via plain CSS hover (kept dependency-free
-// here; App.jsx's useTilt hook is intentionally not imported to avoid coupling
-// this module back to App.jsx internals).
-export default function MechanismCard({ mechanism, mediaCount, onView }) {
-  const meta = tomCategoryMeta(mechanism.category);
-  const cardRef = useRef(null);
+export default function MechanismCard({ mechanism, onView }) {
+  const [imgError, setImgError] = useState(false);
 
-  const coverImage = getMechanismPoster(mechanism);
+  const directCover =
+    mechanism.cover_image ||
+    mechanism.preview_image_url ||
+    mechanism.image_url ||
+    mechanism.thumbnail ||
+    mechanism.image;
+
+  // Only use valid non-SVG-blueprint images
+  const coverImage =
+    directCover && typeof directCover === "string" && !directCover.startsWith("data:image/svg+xml")
+      ? directCover
+      : null;
+
+  const directBg =
+    mechanism.background_image ||
+    mechanism.bg_image_url ||
+    mechanism.thumbnail_bg_url;
+
+  const bgImage =
+    directBg && typeof directBg === "string" && !directBg.startsWith("data:image/svg+xml")
+      ? directBg
+      : null;
+
+  const category = mechanism.category || "Four-bar";
+  const meta = tomCategoryMeta(category);
+
+  // Vibrant gradient themes per category for rich visual variety
+  const categoryGradients = {
+    "Four-bar": "linear-gradient(135deg, rgba(56, 189, 248, 0.22), rgba(14, 165, 233, 0.06))",
+    "Slider-crank": "linear-gradient(135deg, rgba(52, 211, 153, 0.22), rgba(16, 185, 129, 0.06))",
+    "Quick-return": "linear-gradient(135deg, rgba(251, 191, 36, 0.22), rgba(245, 158, 11, 0.06))",
+    "Gear mechanisms": "linear-gradient(135deg, rgba(129, 140, 248, 0.22), rgba(99, 102, 241, 0.06))",
+    "Cam mechanisms": "linear-gradient(135deg, rgba(244, 114, 182, 0.22), rgba(236, 72, 153, 0.06))",
+    "Couplings": "linear-gradient(135deg, rgba(251, 146, 60, 0.22), rgba(234, 88, 12, 0.06))",
+    "Steering mechanisms": "linear-gradient(135deg, rgba(163, 230, 53, 0.22), rgba(132, 204, 22, 0.06))",
+    "Other": "linear-gradient(135deg, rgba(192, 132, 252, 0.22), rgba(168, 85, 247, 0.06))",
+  };
+  const cardGradient = categoryGradients[category] || categoryGradients["Other"];
+
+  const showFallback = !coverImage || imgError;
 
   return (
     <article
-      ref={cardRef}
       className="tom-card"
-      style={{ "--card-accent": meta.color }}
+      onClick={() => onView(mechanism.id)}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onView(mechanism.id);
+        }
+      }}
+      style={{
+        cursor: "pointer",
+        ...(bgImage ? {
+          backgroundImage: `linear-gradient(180deg, rgba(12, 18, 32, 0.72) 0%, rgba(12, 18, 32, 0.94) 100%), url(${bgImage})`,
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+        } : {})
+      }}
     >
-      <div className="tom-card__media">
-        <img
-          className="tom-card__image tom-card__image--photo"
-          src={coverImage}
-          alt={mechanism.name}
-          loading="lazy"
-        />
-        <div className="tom-card__grid-overlay" aria-hidden="true" />
-        <div className="tom-card__category">
-          <span>{meta.icon}</span>
-          <span>{mechanism.category || "Other"}</span>
-        </div>
+      <div
+        className="tom-card__media"
+        style={bgImage ? {
+          backgroundImage: `linear-gradient(rgba(9, 14, 26, 0.3), rgba(9, 14, 26, 0.65)), url(${bgImage})`,
+          backgroundSize: "cover",
+          backgroundPosition: "center"
+        } : {}}
+      >
+        {!showFallback ? (
+          <img
+            className="tom-card__image"
+            src={coverImage}
+            alt={mechanism.name}
+            loading="lazy"
+            onError={() => setImgError(true)}
+          />
+        ) : (
+          <div
+            className="tom-card__clean-banner"
+            style={{
+              width: "100%",
+              height: "100%",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              background: cardGradient,
+              position: "relative",
+            }}
+          >
+            <div
+              style={{
+                width: "56px",
+                height: "56px",
+                borderRadius: "16px",
+                background: "rgba(255, 255, 255, 0.08)",
+                border: `1px solid ${meta.color}45`,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: "26px",
+                boxShadow: `0 8px 22px ${meta.color}28`,
+              }}
+            >
+              {meta.icon}
+            </div>
+            <span
+              style={{
+                marginTop: "10px",
+                fontFamily: "var(--font-mono, monospace)",
+                fontSize: "0.72rem",
+                fontWeight: 700,
+                letterSpacing: "0.08em",
+                textTransform: "uppercase",
+                color: meta.color,
+              }}
+            >
+              {category}
+            </span>
+          </div>
+        )}
       </div>
 
       <div className="tom-card__body">
-        <h3 className="tom-card__title">{mechanism.name}</h3>
-        <p className="tom-card__description">
-          {mechanism.short_description || "No description added yet."}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "8px" }}>
+          <h3 className="tom-card__title">{mechanism.name}</h3>
+          <span
+            style={{
+              fontSize: "0.74rem",
+              color: "#38bdf8",
+              fontWeight: 600,
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "2px",
+              flexShrink: 0,
+              padding: "2px 8px",
+              borderRadius: "999px",
+              background: "rgba(56, 189, 248, 0.08)",
+              border: "1px solid rgba(56, 189, 248, 0.2)",
+            }}
+          >
+            Explore →
+          </span>
+        </div>
+        <p className="tom-card__student">
+          <span className="tom-card__student-badge">
+            👤 {mechanism.student_name || "Student Project"}
+          </span>
         </p>
-
-        <div className="tom-card__meta-row">
-          {mechanism.student_name && (
-            <span className="tom-card__meta-item">👤 {mechanism.student_name}</span>
-          )}
-          <span className="tom-card__meta-item">
-            📎 {mediaCount ?? 0} resource{mediaCount === 1 ? "" : "s"}
-          </span>
-        </div>
-
-        <div className="tom-card__meta-row tom-card__meta-row--muted">
-          <span className="tom-card__meta-item">
-            🗓 {mechanism.created_at ? new Date(mechanism.created_at).toLocaleDateString() : "—"}
-          </span>
-        </div>
-
-        <button type="button" className="button button--card tom-card__view-btn" onClick={() => onView(mechanism.id)}>
-          View Mechanism →
-        </button>
       </div>
     </article>
   );

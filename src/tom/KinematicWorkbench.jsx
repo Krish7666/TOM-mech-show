@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { analyzeMechanism } from "./kinematics";
 import MechanismPreview from "./MechanismPreview";
+import FourBarVirtualLab from "./FourBarVirtualLab";
 
 const PRESETS = [
   { name: "Four-Bar Linkage", links: 4, joints: 4, higherPairs: 0, category: "Linkages" },
@@ -13,6 +14,7 @@ const PRESETS = [
 ];
 
 export default function KinematicWorkbench({ initialMechanism = null, onApply = null }) {
+  const [activeTool, setActiveTool] = useState("mobility"); // "mobility" | "vlab"
   const [links, setLinks] = useState(initialMechanism?.dofInputs?.links ?? initialMechanism?.links ?? initialMechanism?.num_links ?? 4);
   const [joints, setJoints] = useState(initialMechanism?.dofInputs?.joints ?? initialMechanism?.joints ?? initialMechanism?.num_joints ?? 4);
   const [higherPairs, setHigherPairs] = useState(initialMechanism?.dofInputs?.higherPairs ?? initialMechanism?.higherPairs ?? initialMechanism?.higher_pairs ?? 0);
@@ -44,16 +46,15 @@ export default function KinematicWorkbench({ initialMechanism = null, onApply = 
     <div className="kinematic-workbench">
       <div className="workbench-header">
         <div>
-          <span className="eyebrow">Kinematic Engine</span>
-          <h3 className="workbench-title">Grübler-Kutzbach Mobility Solver</h3>
+          <h3 className="workbench-title">Movement &amp; Mobility Calculator</h3>
           <p className="workbench-subtitle">
-            Interactive parameter analysis for planar mechanical networks: <code>F = 3(L - 1) - 2J - H</code>
+            See how many independent motions a mechanism has based on its parts and joints.
           </p>
         </div>
 
         <div className="workbench-actions">
           <button type="button" className="secondary-btn secondary-btn--small" onClick={handleReset}>
-            Reset (L=4, J=4)
+            Reset (4 Links, 4 Joints)
           </button>
           {onApply && (
             <button
@@ -67,32 +68,68 @@ export default function KinematicWorkbench({ initialMechanism = null, onApply = 
         </div>
       </div>
 
-      {/* ── PRESETS ──────────────────────────────────────────────────────── */}
-      <div className="workbench-presets">
-        <span className="workbench-presets__label">Quick Presets:</span>
-        <div className="workbench-presets__list">
-          {PRESETS.map((preset) => (
-            <button
-              key={preset.name}
-              type="button"
-              className={`preset-pill${selectedPreset === preset.name ? " preset-pill--active" : ""}`}
-              onClick={() => handlePresetSelect(preset)}
-            >
-              {preset.name}
-            </button>
-          ))}
-        </div>
+      {/* ── WORKBENCH MODE SWITCHER ── */}
+      <div style={{ display: "flex", gap: "10px", margin: "16px 0 20px 0", flexWrap: "wrap", alignItems: "center" }}>
+        <button
+          type="button"
+          className={`button ${activeTool === "mobility" ? "button--primary" : "button--secondary"}`}
+          style={{ fontSize: "0.85rem", padding: "8px 16px" }}
+          onClick={() => setActiveTool("mobility")}
+        >
+          ⚙️ Mobility &amp; DOF Calculator
+        </button>
+        <button
+          type="button"
+          className={`button ${activeTool === "vlab" ? "button--primary" : "button--secondary"}`}
+          style={{ fontSize: "0.85rem", padding: "8px 16px", borderColor: "rgba(56, 189, 248, 0.4)", color: activeTool === "vlab" ? "#fff" : "#38bdf8" }}
+          onClick={() => setActiveTool("vlab")}
+        >
+          🔬 Four-Bar Virtual Lab (Grashof &amp; Coupler Curves)
+        </button>
       </div>
 
-      {/* ── DUAL COLUMN WORKBENCH ────────────────────────────────────────── */}
-      <div className="workbench-grid">
+      {activeTool === "vlab" ? (
+        <div style={{ marginTop: 8 }}>
+          <FourBarVirtualLab />
+        </div>
+      ) : (
+        <>
+          {/* ── PRESETS ──────────────────────────────────────────────────────── */}
+          <div className="workbench-presets">
+            <span className="workbench-presets__label">Quick Presets:</span>
+            <div className="workbench-presets__list" style={{ display: "flex", flexWrap: "wrap", gap: "6px", width: "100%", alignItems: "center" }}>
+              {PRESETS.map((preset) => (
+                <button
+                  key={preset.name}
+                  type="button"
+                  className={`preset-pill${selectedPreset === preset.name ? " preset-pill--active" : ""}`}
+                  onClick={() => handlePresetSelect(preset)}
+                >
+                  {preset.name}
+                </button>
+              ))}
+              {selectedPreset === "Four-Bar Linkage" && (
+                <button
+                  type="button"
+                  className="button button--secondary button--toolbar"
+                  style={{ fontSize: "0.78rem", padding: "4px 12px", borderColor: "rgba(56, 189, 248, 0.4)", color: "#38bdf8", marginLeft: "auto" }}
+                  onClick={() => setActiveTool("vlab")}
+                >
+                  🔬 Launch Four-Bar Virtual Lab →
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* ── DUAL COLUMN WORKBENCH ────────────────────────────────────────── */}
+          <div className="workbench-grid">
         {/* Controls Column */}
         <div className="workbench-controls-card">
           <h4 className="workbench-card-title">Linkage Parameters</h4>
 
           <div className="workbench-slider-group">
             <div className="slider-header">
-              <label htmlFor="wb-links">Number of Links (L)</label>
+              <label htmlFor="wb-links">Number of Parts / Links</label>
               <span className="slider-value">{links}</span>
             </div>
             <input
@@ -107,12 +144,12 @@ export default function KinematicWorkbench({ initialMechanism = null, onApply = 
               }}
               className="workbench-slider"
             />
-            <span className="slider-hint">Total rigid kinematic elements in the mechanism.</span>
+            <span className="slider-hint">Number of rigid bars or parts forming the mechanism.</span>
           </div>
 
           <div className="workbench-slider-group">
             <div className="slider-header">
-              <label htmlFor="wb-joints">Lower Pairs / Joints (J)</label>
+              <label htmlFor="wb-joints">Number of Joints</label>
               <span className="slider-value">{joints}</span>
             </div>
             <input
@@ -127,12 +164,12 @@ export default function KinematicWorkbench({ initialMechanism = null, onApply = 
               }}
               className="workbench-slider"
             />
-            <span className="slider-hint">Pin, revolute, prismatic, and sliding surface joints (1 DOF each).</span>
+            <span className="slider-hint">Pin or sliding joints connecting the parts together.</span>
           </div>
 
           <div className="workbench-slider-group">
             <div className="slider-header">
-              <label htmlFor="wb-higher">Higher Pairs (H)</label>
+              <label htmlFor="wb-higher">Point Contacts (Gears / Cams)</label>
               <span className="slider-value">{higherPairs}</span>
             </div>
             <input
@@ -147,12 +184,12 @@ export default function KinematicWorkbench({ initialMechanism = null, onApply = 
               }}
               className="workbench-slider"
             />
-            <span className="slider-hint">Cam-follower point contacts, rolling gear mesh (2 DOF each).</span>
+            <span className="slider-hint">Rolling or sliding contacts like gear teeth or cams.</span>
           </div>
 
           {/* Equation Breakdown Box */}
           <div className="equation-breakdown-box">
-            <span className="equation-label">Grübler Criterion Substitution</span>
+            <span className="equation-label">Movement Calculation</span>
             <div className="equation-formula">
               F = 3({links} - 1) - 2({joints}) - {higherPairs}
             </div>
@@ -192,6 +229,8 @@ export default function KinematicWorkbench({ initialMechanism = null, onApply = 
           </div>
         </div>
       </div>
-    </div>
-  );
+    </>
+  )}
+</div>
+);
 }
