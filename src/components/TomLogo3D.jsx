@@ -5,107 +5,74 @@ import { Environment, Float, ContactShadows } from '@react-three/drei';
 function MechanicalLogo() {
   const group = useRef();
   
-  // Rotate the entire mechanism over time and slightly react to mouse
+  // Rotate the gyroscope rings
+  const ring1 = useRef();
+  const ring2 = useRef();
+  const ring3 = useRef();
+  const core = useRef();
+
   useFrame((state) => {
     const t = state.clock.getElapsedTime();
-    group.current.rotation.z = -t * 0.15; // Constant gear rotation
-    group.current.position.y = Math.sin(t / 2) / 4;
+    
+    // Smooth floating
+    group.current.position.y = Math.sin(t / 2) / 3;
     
     // Mouse interaction tilt
-    const targetX = state.pointer.y * 0.4;
-    const targetY = state.pointer.x * 0.4;
+    const targetX = state.pointer.y * 0.5;
+    const targetY = state.pointer.x * 0.5;
     group.current.rotation.x += (targetX - group.current.rotation.x) * 0.05;
     group.current.rotation.y += (targetY - group.current.rotation.y) * 0.05;
-  });
 
-  // Gear teeth generator
-  const createTeeth = (radius, count, color) => {
-    return Array.from({ length: count }).map((_, i) => {
-      const angle = (i / count) * Math.PI * 2;
-      return (
-        <mesh key={i} position={[Math.cos(angle) * radius, Math.sin(angle) * radius, 0]} rotation={[0, 0, angle]}>
-          <boxGeometry args={[0.4, 0.5, 0.4]} />
-          <meshStandardMaterial color={color} metalness={0.8} roughness={0.2} />
-        </mesh>
-      );
-    });
-  };
+    // Gyroscope ring rotations
+    if (ring1.current) ring1.current.rotation.x = t * 0.4;
+    if (ring2.current) ring2.current.rotation.y = t * 0.6;
+    if (ring3.current) ring3.current.rotation.z = t * 0.8;
+    if (core.current) {
+      core.current.rotation.x = t;
+      core.current.rotation.y = t * 1.2;
+    }
+  });
 
   return (
     <group ref={group}>
-      {/* Background large gear */}
-      <group position={[0, 0, -1]} rotation={[0, 0, Math.PI / 8]}>
-        <mesh>
-          <torusGeometry args={[3.5, 0.3, 16, 100]} />
-          <meshStandardMaterial color="#1e293b" metalness={0.9} roughness={0.3} />
-        </mesh>
-        {createTeeth(3.5, 24, "#334155")}
-      </group>
-
-      {/* Main Central Gear Ring */}
-      <mesh>
-        <torusGeometry args={[1.5, 0.2, 16, 100]} />
-        <meshStandardMaterial color="#38bdf8" metalness={0.8} roughness={0.2} />
+      {/* Outer Ring */}
+      <mesh ref={ring1}>
+        <torusGeometry args={[3.5, 0.08, 16, 100]} />
+        <meshStandardMaterial color="#38bdf8" metalness={0.9} roughness={0.1} emissive="#0ea5e9" emissiveIntensity={0.5} />
       </mesh>
-      {createTeeth(1.5, 12, "#0ea5e9")}
       
-      {/* Central Hub */}
-      <mesh rotation={[Math.PI / 2, 0, 0]}>
-        <cylinderGeometry args={[0.5, 0.5, 0.3, 32]} />
-        <meshStandardMaterial color="#fbbf24" metalness={0.9} roughness={0.1} />
-      </mesh>
-      <mesh rotation={[Math.PI / 2, 0, 0]}>
-        <cylinderGeometry args={[0.3, 0.3, 0.4, 32]} />
-        <meshStandardMaterial color="#0b0f19" />
+      {/* Middle Ring */}
+      <mesh ref={ring2} rotation={[Math.PI / 4, 0, 0]}>
+        <torusGeometry args={[2.8, 0.12, 16, 100]} />
+        <meshStandardMaterial color="#818cf8" metalness={0.8} roughness={0.2} emissive="#4f46e5" emissiveIntensity={0.8} />
       </mesh>
 
-      {/* Offset secondary gear */}
-      <group position={[2.8, 2.8, 0]} rotation={[0, 0, -Math.PI / 4]}>
-         <mesh>
-          <torusGeometry args={[1.0, 0.15, 16, 50]} />
-          <meshStandardMaterial color="#818cf8" metalness={0.8} roughness={0.2} />
-        </mesh>
-        {createTeeth(1.0, 8, "#6366f1")}
-        <mesh rotation={[Math.PI / 2, 0, 0]}>
-          <cylinderGeometry args={[0.3, 0.3, 0.2, 16]} />
-          <meshStandardMaterial color="#fbbf24" metalness={0.9} />
-        </mesh>
-      </group>
+      {/* Inner Ring */}
+      <mesh ref={ring3} rotation={[0, Math.PI / 4, 0]}>
+        <torusGeometry args={[2.1, 0.05, 16, 100]} />
+        <meshStandardMaterial color="#fbbf24" metalness={1} roughness={0} emissive="#d97706" emissiveIntensity={0.6} />
+      </mesh>
 
-      {/* Offset tertiary gear */}
-      <group position={[-3.2, -1.5, 0]} rotation={[0, 0, Math.PI / 6]}>
-         <mesh>
-          <torusGeometry args={[1.2, 0.18, 16, 50]} />
-          <meshStandardMaterial color="#10b981" metalness={0.8} roughness={0.2} />
-        </mesh>
-        {createTeeth(1.2, 10, "#059669")}
-        <mesh rotation={[Math.PI / 2, 0, 0]}>
-          <cylinderGeometry args={[0.4, 0.4, 0.2, 16]} />
-          <meshStandardMaterial color="#fbbf24" metalness={0.9} />
-        </mesh>
-      </group>
+      {/* Glowing Energy Core */}
+      <mesh ref={core}>
+        <octahedronGeometry args={[1, 0]} />
+        <meshStandardMaterial color="#ffffff" metalness={0.2} roughness={0.1} emissive="#38bdf8" emissiveIntensity={2} wireframe />
+      </mesh>
+      
+      <mesh>
+         <sphereGeometry args={[0.6, 32, 32]} />
+         <meshStandardMaterial color="#0b0f19" metalness={0.8} roughness={0.2} />
+      </mesh>
 
-      {/* Kinematic Linkages */}
-      <group>
-        {/* Link from center to secondary */}
-        <mesh position={[1.4, 1.4, 0.4]} rotation={[0, 0, Math.PI / 4]}>
-          <boxGeometry args={[3.8, 0.2, 0.1]} />
-          <meshStandardMaterial color="#818cf8" metalness={0.6} roughness={0.3} />
-        </mesh>
-        {/* Link from center to tertiary */}
-        <mesh position={[-1.6, -0.75, 0.4]} rotation={[0, 0, Math.atan2(-1.5, -3.2)]}>
-          <boxGeometry args={[3.5, 0.2, 0.1]} />
-          <meshStandardMaterial color="#10b981" metalness={0.6} roughness={0.3} />
-        </mesh>
-        
-        {/* Joints / Bearings */}
-        {[[0, 0, 0.4], [2.8, 2.8, 0.4], [-3.2, -1.5, 0.4]].map((pos, idx) => (
-          <mesh key={idx} position={pos} rotation={[Math.PI/2, 0, 0]}>
-            <cylinderGeometry args={[0.25, 0.25, 0.2, 16]} />
-            <meshStandardMaterial color="#fbbf24" metalness={0.8} roughness={0.2} />
-          </mesh>
-        ))}
-      </group>
+      {/* Abstract technical orbit lines */}
+      <mesh rotation={[Math.PI / 2, 0, 0]}>
+        <ringGeometry args={[4.5, 4.52, 64]} />
+        <meshBasicMaterial color="#38bdf8" transparent opacity={0.2} side={2} />
+      </mesh>
+      <mesh rotation={[0, Math.PI / 2, 0]}>
+        <ringGeometry args={[5, 5.02, 64]} />
+        <meshBasicMaterial color="#818cf8" transparent opacity={0.15} side={2} />
+      </mesh>
     </group>
   );
 }

@@ -8,7 +8,7 @@ import { useId, useState } from "react";
  * - Glowing precision blueprint neon gradients (cyan #38bdf8, blue #818cf8, gold #fbbf24)
  * Supports image mode with seamless vector fallback.
  */
-export default function TomLogo({ size = 38, className = "", useImage = false }) {
+export default function TomLogo({ size = 38, className = "", useImage = true }) {
   const [imgError, setImgError] = useState(false);
   const uid = useId();
   const glowId = `tomCyanGlow${uid}`;
