@@ -8,10 +8,11 @@ import {
   drawPivotJoint,
   drawGroundHatch,
   drawEngineeringGrid,
+  safeRoundRect,
   KINEMATIC_COLORS,
 } from "./kinematicCanvasEngine.js";
 import { camLift } from "./kinematics.js";
-import { fetchApprovedMechanisms } from "./tomApi.js";
+import { useMechanisms } from "../context/MechanismsContext.jsx";
 
 export default function FourBarVirtualLab({
   initialMechanism = null,
@@ -19,21 +20,10 @@ export default function FourBarVirtualLab({
   onApply = null,
   standalone = false,
 }) {
-  // ─── CLOUD REPOSITORY MECHANISMS ──────────────────────────────────────────
-  const [cloudMechanisms, setCloudMechanisms] = useState([]);
+  // ─── CLOUD REPOSITORY MECHANISMS (from shared context) ────────────────────
+  const { mechanisms: cloudMechanisms } = useMechanisms();
   const [userSelectedId, setUserSelectedId] = useState(null);
-
-  useEffect(() => {
-    let active = true;
-    async function loadCloudRepo() {
-      const { data } = await fetchApprovedMechanisms();
-      if (active && data) {
-        setCloudMechanisms(data);
-      }
-    }
-    loadCloudRepo();
-    return () => { active = false; };
-  }, []);
+  const [userSelectedType, setUserSelectedType] = useState(null);
 
   const selectedMechId = userSelectedId || (initialMechanism?.id ? String(initialMechanism.id) : (cloudMechanisms[0]?.id ? String(cloudMechanisms[0].id) : ""));
 
@@ -50,6 +40,7 @@ export default function FourBarVirtualLab({
 
   // Topology classification
   const mechType = useMemo(() => {
+    if (userSelectedType) return userSelectedType;
     if (!activeMechanism) return "fourbar";
     const cat = (activeMechanism.category || "").toLowerCase();
     const nm = (activeMechanism.name || "").toLowerCase();
@@ -81,7 +72,7 @@ export default function FourBarVirtualLab({
       return "steering";
     }
     return "fourbar";
-  }, [activeMechanism]);
+  }, [userSelectedType, activeMechanism]);
 
   // ─── MECHANISM SPECIFIC PARAMETERS ─────────────────────────────────────────
   // 1. Four-Bar Linkage
@@ -159,6 +150,14 @@ export default function FourBarVirtualLab({
   // Handle mechanism change
   const handleSelectMechanism = (id) => {
     setUserSelectedId(id);
+    setUserSelectedType(null);
+    traceRef.current = [];
+    setTheta(0);
+    setRunning(true);
+  };
+
+  const handleSelectType = (type) => {
+    setUserSelectedType(type);
     traceRef.current = [];
     setTheta(0);
     setRunning(true);
@@ -192,11 +191,14 @@ export default function FourBarVirtualLab({
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
+    if (!ctx) return;
     const s = stateRef.current;
+    if (!s) return;
 
     const dpr = window.devicePixelRatio || 1;
     const width = canvas.width / dpr;
     const height = canvas.height / dpr;
+    if (width <= 0 || height <= 0 || !Number.isFinite(width) || !Number.isFinite(height)) return;
 
     ctx.save();
     ctx.scale(dpr, dpr);
@@ -357,7 +359,7 @@ export default function FourBarVirtualLab({
       ctx.strokeStyle = KINEMATIC_COLORS.output;
       ctx.lineWidth = 2.5;
       ctx.beginPath();
-      ctx.roundRect(pB.x - pw / 2, pB.y - ph / 2, pw, ph, 6);
+      safeRoundRect(ctx, pB.x - pw / 2, pB.y - ph / 2, pw, ph, 6);
       ctx.fill();
       ctx.stroke();
 
@@ -431,7 +433,7 @@ export default function FourBarVirtualLab({
       ctx.strokeStyle = KINEMATIC_COLORS.output;
       ctx.lineWidth = 2;
       ctx.beginPath();
-      ctx.roundRect(pRam.x - 24, pRam.y - 12, 48, 24, 4);
+      safeRoundRect(ctx, pRam.x - 24, pRam.y - 12, 48, 24, 4);
       ctx.fill();
       ctx.stroke();
 
@@ -504,15 +506,17 @@ export default function FourBarVirtualLab({
     // 5. GEAR TRAIN CANVAS
     if (s.mechType === "gear") {
       const m = 2.4;
-      const r1 = s.gearT1 * m * 0.8;
-      const r2 = s.gearT2 * m * 0.8;
+      const t1 = Math.max(1, Math.round(s.gearT1) || 20);
+      const t2 = Math.max(1, Math.round(s.gearT2) || 40);
+      const r1 = t1 * m * 0.8;
+      const r2 = t2 * m * 0.8;
       const cx1 = width * 0.38;
       const cy1 = height * 0.5;
       const cx2 = cx1 + r1 + r2;
       const cy2 = cy1;
 
       const rot1 = (s.theta * Math.PI) / 180;
-      const rot2 = -rot1 * (s.gearT1 / s.gearT2);
+      const rot2 = -rot1 * (t1 / t2);
 
       const drawGear = (x, y, r, teeth, rot, color, label) => {
         ctx.save();
@@ -570,7 +574,7 @@ export default function FourBarVirtualLab({
         ctx.fillStyle = "#1e293b";
         ctx.strokeStyle = KINEMATIC_COLORS.output;
         ctx.lineWidth = 2;
-        ctx.roundRect(-10, -26, 20, 52, 4);
+        safeRoundRect(ctx, -10, -26, 20, 52, 4);
         ctx.fill();
         ctx.stroke();
         ctx.restore();
@@ -581,6 +585,14 @@ export default function FourBarVirtualLab({
       drawWheel(cx + s.steerW * 1.5, cy, steerRad * 0.85, "Outer");
       return;
     }
+  } catch (err) {
+    console.error("Virtual Lab render error:", err);
+    try {
+      ctx.fillStyle = "#f87171";
+      ctx.font = "bold 13px 'DM Mono', monospace";
+      ctx.textAlign = "center";
+      ctx.fillText("⚠ Simulation error: " + (err?.message || "Check mechanism geometry"), width / 2, height / 2);
+    } catch {}
   } finally {
     ctx.restore();
   }
@@ -620,8 +632,12 @@ export default function FourBarVirtualLab({
       if (!canvas) return;
       const rect = canvas.getBoundingClientRect();
       const dpr = window.devicePixelRatio || 1;
-      canvas.width = rect.width * dpr;
-      canvas.height = rect.height * dpr;
+      const w = Math.max(1, Math.floor((rect.width || 600) * dpr));
+      const h = Math.max(1, Math.floor((rect.height || 440) * dpr));
+      if (canvas.width !== w || canvas.height !== h) {
+        canvas.width = w;
+        canvas.height = h;
+      }
       drawFrame();
     };
 
@@ -632,99 +648,99 @@ export default function FourBarVirtualLab({
 
   return (
     <div className={"vlab-shell" + (standalone ? " vlab-shell--standalone" : "")}>
-      {/* ── TOP CLOUD REPOSITORY MECHANISM SELECTOR ── */}
-      <div className="vlab-selector-bar">
-        <span className="vlab-selector-label">
-          📂 Select Mechanism:
-        </span>
-        <select
-          className="vlab-select"
-          value={selectedMechId}
-          onChange={(e) => handleSelectMechanism(e.target.value)}
-        >
-          {cloudMechanisms.length === 0 ? (
-            <option value="">Loading repository mechanisms…</option>
-          ) : (
-            <>
-              <optgroup label="Built-In Kinematic Models">
-                {cloudMechanisms
-                  .filter((m) => String(m.id).startsWith("builtin"))
-                  .map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.name}
-                    </option>
-                  ))}
-              </optgroup>
-              <optgroup label="Student Submissions (Cloud Repository)">
-                {cloudMechanisms
-                  .filter((m) => !String(m.id).startsWith("builtin"))
-                  .map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.name} — By {m.student_name || "Student"}
-                    </option>
-                  ))}
-              </optgroup>
-            </>
-          )}
-        </select>
+      {/* ── TOP CLOUD REPOSITORY MECHANISM SELECTOR (only shown on standalone Virtual Lab page) ── */}
+      {standalone ? (
+        <div className="vlab-selector-bar">
+          <span className="vlab-selector-label">
+            📂 Select Mechanism:
+          </span>
+          <select
+            className="vlab-select"
+            value={selectedMechId}
+            onChange={(e) => handleSelectMechanism(e.target.value)}
+          >
+            {cloudMechanisms.length === 0 ? (
+              <option value="">Default Interactive Four-Bar Simulator</option>
+            ) : (
+              cloudMechanisms.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.name} {m.student_name ? `— By ${m.student_name}` : ""}
+                </option>
+              ))
+            )}
+          </select>
 
-        <div className="vlab-pills">
-          <button
-            type="button"
-            className={"vlab-pill" + (mechType === "fourbar" ? " vlab-pill--active" : "")}
-            onClick={() => {
-              const fb = cloudMechanisms.find((m) => m.name?.toLowerCase().includes("four-bar")) || cloudMechanisms[0];
-              if (fb) handleSelectMechanism(fb.id);
-            }}
-          >
-            ⚙️ Four-Bar
-          </button>
-          <button
-            type="button"
-            className={"vlab-pill" + (mechType === "slidercrank" ? " vlab-pill--active" : "")}
-            onClick={() => {
-              const sc = cloudMechanisms.find((m) => m.name?.toLowerCase().includes("slider")) || cloudMechanisms[1];
-              if (sc) handleSelectMechanism(sc.id);
-            }}
-          >
-            🔩 Slider-Crank
-          </button>
-          <button
-            type="button"
-            className={"vlab-pill" + (mechType === "quickreturn" ? " vlab-pill--active" : "")}
-            onClick={() => {
-              const qr = cloudMechanisms.find((m) => m.name?.toLowerCase().includes("quick")) || cloudMechanisms[2];
-              if (qr) handleSelectMechanism(qr.id);
-            }}
-          >
-            ↩️ Quick-Return
-          </button>
-          <button
-            type="button"
-            className={"vlab-pill" + (mechType === "cam" ? " vlab-pill--active" : "")}
-            onClick={() => {
-              const cm = cloudMechanisms.find((m) => m.name?.toLowerCase().includes("cam"));
-              if (cm) handleSelectMechanism(cm.id);
-            }}
-          >
-            🔵 Cam & Follower
-          </button>
-          <button
-            type="button"
-            className={"vlab-pill" + (mechType === "gear" ? " vlab-pill--active" : "")}
-            onClick={() => {
-              const gr = cloudMechanisms.find((m) => m.name?.toLowerCase().includes("gear"));
-              if (gr) handleSelectMechanism(gr.id);
-            }}
-          >
-            🛠️ Gear Train
-          </button>
+          <div className="vlab-pills">
+            <button
+              type="button"
+              className={"vlab-pill" + (mechType === "fourbar" ? " vlab-pill--active" : "")}
+              onClick={() => handleSelectType("fourbar")}
+            >
+              ⚙️ Four-Bar
+            </button>
+            <button
+              type="button"
+              className={"vlab-pill" + (mechType === "slidercrank" ? " vlab-pill--active" : "")}
+              onClick={() => handleSelectType("slidercrank")}
+            >
+              🔩 Slider-Crank
+            </button>
+            <button
+              type="button"
+              className={"vlab-pill" + (mechType === "quickreturn" ? " vlab-pill--active" : "")}
+              onClick={() => handleSelectType("quickreturn")}
+            >
+              ↩️ Quick-Return
+            </button>
+            <button
+              type="button"
+              className={"vlab-pill" + (mechType === "cam" ? " vlab-pill--active" : "")}
+              onClick={() => handleSelectType("cam")}
+            >
+              🔵 Cam & Follower
+            </button>
+            <button
+              type="button"
+              className={"vlab-pill" + (mechType === "gear" ? " vlab-pill--active" : "")}
+              onClick={() => handleSelectType("gear")}
+            >
+              🛠️ Gear Train
+            </button>
+            <button
+              type="button"
+              className={"vlab-pill" + (mechType === "steering" ? " vlab-pill--active" : "")}
+              onClick={() => handleSelectType("steering")}
+            >
+              🚗 Steering
+            </button>
+          </div>
+
+          <span className="vlab-repo-badge">
+            ☁️ {cloudMechanisms.length} Models in Repository
+          </span>
         </div>
-
-        <span className="vlab-repo-badge">
-          ☁️ {cloudMechanisms.length} Models in Repository
-        </span>
-      </div>
+      ) : (
+        activeMechanism && (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+              padding: "10px 18px",
+              background: "rgba(15, 23, 42, 0.7)",
+              borderRadius: "12px",
+              border: "1px solid rgba(56, 189, 248, 0.25)",
+              marginBottom: 16,
+            }}
+          >
+            <span style={{ fontSize: "1.1rem" }}>🔬</span>
+            <span style={{ fontSize: "0.88rem", color: "#f8fafc", fontWeight: 600 }}>
+              Virtual Lab Simulation: <span style={{ color: "#38bdf8" }}>{activeMechanism.name}</span>
+              {activeMechanism.student_name ? ` (Submitted by ${activeMechanism.student_name})` : ""}
+            </span>
+          </div>
+        )
+      )}
 
       {/* ── MAIN VLAB HEADER ── */}
       <div className="vlab-header">

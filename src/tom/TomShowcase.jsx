@@ -1,54 +1,29 @@
 import { useEffect, useMemo, useState } from "react";
-import { TOM_CATEGORIES, tomCategoryMeta } from "./tomConstants";
-import { fetchApprovedMechanisms, fetchPendingMechanisms, submitMechanism, approveMechanism, rejectMechanism } from "./tomApi";
+import { tomCategoryMeta } from "./tomConstants";
+import { submitMechanism, approveMechanism, rejectMechanism } from "./tomApi";
 import { isSupabaseConfigured } from "../lib/supabaseClient";
+import { useMechanisms } from "../context/MechanismsContext.jsx";
 import MechanismCard from "./MechanismCard.jsx";
 import MechanismForm from "./MechanismForm.jsx";
 import MechanismDetail from "./MechanismDetail.jsx";
 
 export default function TomShowcase({ isAdmin, onRequestAdminLogin, onRequestAddMechanism }) {
-  const [mechanisms, setMechanisms] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [dbError, setDbError] = useState("");
+  // Data from shared context — no extra Supabase call here
+  const { mechanisms, pendingMechanisms: pending, loading, refreshData } = useMechanisms();
+
+  const [dbError] = useState("");
   const [search, setSearch] = useState("");
-  const [activeCat, setActiveCat] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
   const [selectedId, setSelectedId] = useState(null);
   const [showPending, setShowPending] = useState(false);
-  const [pending, setPending] = useState([]);
   const [viewMode, setViewMode] = useState("grid"); // "grid" | "table"
   const [sortBy, setSortBy] = useState("newest"); // "newest" | "name" | "dof"
   const [dofFilter, setDofFilter] = useState("all"); // "all" | "1" | "multi" | "structure"
+  const [yearFilter, setYearFilter] = useState("all"); // "all" | "SE Mech" | "TE Mech" | "BE Mech"
 
-  async function loadApproved() {
-    setLoading(true);
-    const { data, error } = await fetchApprovedMechanisms();
-    if (error && isSupabaseConfigured) {
-      setDbError(error.message || "Could not load mechanisms from Supabase. Check your connection or table schema.");
-    } else {
-      setDbError("");
-    }
-    setMechanisms(data || []);
-    setLoading(false);
-  }
-
-  async function loadPending() {
-    const { data } = await fetchPendingMechanisms();
-    setPending(data);
-  }
-
-  useEffect(() => {
-    async function run() { await loadApproved(); }
-    run();
-  }, []);
-
-  useEffect(() => {
-    async function run() { if (isAdmin) await loadPending(); }
-    run();
-  }, [isAdmin]);
 
   useEffect(() => {
     function parseHash() {
@@ -83,10 +58,10 @@ export default function TomShowcase({ isAdmin, onRequestAdminLogin, onRequestAdd
   const sortedAndFiltered = useMemo(() => {
     const q = search.trim().toLowerCase();
     const list = mechanisms.filter((m) => {
-      if (activeCat && m.category !== activeCat) return false;
       if (dofFilter === "1" && (m.degrees_of_freedom ?? 1) !== 1) return false;
       if (dofFilter === "multi" && (m.degrees_of_freedom ?? 1) <= 1) return false;
       if (dofFilter === "structure" && (m.degrees_of_freedom ?? 1) > 0) return false;
+      if (yearFilter !== "all" && (m.academic_year || "").toLowerCase() !== yearFilter.toLowerCase()) return false;
       if (!q) return true;
       return [
         m.name,
@@ -109,7 +84,8 @@ export default function TomShowcase({ isAdmin, onRequestAdminLogin, onRequestAdd
       return [...list].sort((a, b) => (b.degrees_of_freedom ?? 1) - (a.degrees_of_freedom ?? 1));
     }
     return list;
-  }, [mechanisms, activeCat, search, sortBy, dofFilter]);
+  }, [mechanisms, search, sortBy, dofFilter, yearFilter]);
+
 
   function flash(msg) {
     setSuccessMsg(msg);
@@ -128,7 +104,7 @@ export default function TomShowcase({ isAdmin, onRequestAdminLogin, onRequestAdd
       college: "NMIET",
       department: "Mechanical Engineering",
     };
-    const { error, uploadErrors } = await submitMechanism(enrichedValues, filesByType);
+    const { error, hasBlobOnlyFiles } = await submitMechanism(enrichedValues, filesByType);
     setSubmitting(false);
 
     if (error) {
@@ -137,26 +113,25 @@ export default function TomShowcase({ isAdmin, onRequestAdminLogin, onRequestAdd
     }
     setShowForm(false);
     flash(
-      uploadErrors?.length
-        ? `Mechanism published! (${uploadErrors.length} file(s) failed to upload)`
-        : "Mechanism submitted and published live in the repository!"
+      hasBlobOnlyFiles
+        ? "Mechanism submitted! ⚠️ Large file(s) are session-only — upload to Supabase to persist."
+        : "✅ Mechanism submitted! It will appear in the repository after admin review."
     );
-    await loadApproved();
-    if (isAdmin) loadPending();
+    await refreshData();
   }
 
   async function handleQuickApprove(id) {
     await approveMechanism(id);
-    loadPending();
-    loadApproved();
+    await refreshData();
     flash("Mechanism approved.");
   }
 
   async function handleQuickReject(id) {
     await rejectMechanism(id);
-    loadPending();
+    await refreshData();
     flash("Mechanism rejected.");
   }
+
 
   if (selectedId) {
     return (
@@ -164,7 +139,7 @@ export default function TomShowcase({ isAdmin, onRequestAdminLogin, onRequestAdd
         id={selectedId}
         isAdmin={isAdmin}
         onBack={() => handleSelectMechanism(null)}
-        onChanged={() => { loadApproved(); if (isAdmin) loadPending(); }}
+        onChanged={() => refreshData()}
       />
     );
   }
@@ -181,9 +156,10 @@ export default function TomShowcase({ isAdmin, onRequestAdminLogin, onRequestAdd
           Theory of Machines <span>Cloud Repository</span>
         </h1>
         <p className="hero-copy">
-          The central repository for kinematic mechanisms, interactive simulations, and student projects from NMIET Mechanical Engineering — complete with live motion animations, mobility &amp; DOF calculations, technical drawings, demonstration videos, and CAD models.
+          The central repository for kinematic mechanisms, interactive simulations, and student projects from NMIET Mechanical Engineering — complete with live motion animations, mobility &amp; DOF calculations, technical drawings, and demonstration videos.
         </p>
       </div>
+
 
       {!isSupabaseConfigured && (
         <div style={{
@@ -239,27 +215,6 @@ export default function TomShowcase({ isAdmin, onRequestAdminLogin, onRequestAdd
             </button>
           )}
         </div>
-
-        <div className="category-row">
-          <button type="button"
-            className={`category-pill${activeCat ? "" : " category-pill--active"}`}
-            style={{ "--pill-color": "#38bdf8", "--pill-bg": "rgba(56, 189, 248, 0.18)", "--pill-border": "rgba(56, 189, 248, 0.45)" }}
-            onClick={() => setActiveCat("")}>
-            <span>✨</span><span>All</span>
-          </button>
-          {TOM_CATEGORIES.map((cat) => {
-            const meta = tomCategoryMeta(cat);
-            const isActive = activeCat === cat;
-            return (
-              <button key={cat} type="button"
-                className={`category-pill${isActive ? " category-pill--active" : ""}`}
-                style={{ "--pill-color": meta.color, "--pill-bg": `${meta.color}22`, "--pill-border": `${meta.color}55` }}
-                onClick={() => setActiveCat(isActive ? "" : cat)}>
-                <span>{meta.icon}</span><span>{cat}</span>
-              </button>
-            );
-          })}
-        </div>
       </div>
 
       <div className="repository-meta-bar">
@@ -267,14 +222,19 @@ export default function TomShowcase({ isAdmin, onRequestAdminLogin, onRequestAdd
           <span className="repository-count-tag">
             Showing <strong>{sortedAndFiltered.length}</strong> of <strong>{mechanisms.length}</strong> mechanisms
           </span>
-          {activeCat && (
-            <span className="active-filter-pill">
-              Category: {activeCat} <button type="button" onClick={() => setActiveCat("")} aria-label="Clear category filter">×</button>
-            </span>
-          )}
         </div>
 
         <div className="repository-meta-bar__right">
+          <label className="sort-label">
+            <span>Class:</span>
+            <select value={yearFilter} onChange={(e) => setYearFilter(e.target.value)} className="sort-select">
+              <option value="all">All Classes</option>
+              <option value="SE Mech">SE Mech</option>
+              <option value="TE Mech">TE Mech</option>
+              <option value="BE Mech">BE Mech</option>
+            </select>
+          </label>
+
           <label className="sort-label">
             <span>Movement:</span>
             <select value={dofFilter} onChange={(e) => setDofFilter(e.target.value)} className="sort-select">
@@ -293,6 +253,7 @@ export default function TomShowcase({ isAdmin, onRequestAdminLogin, onRequestAdd
               <option value="dof">Mobility (DOF)</option>
             </select>
           </label>
+
 
           <div className="view-mode-toggle" role="group" aria-label="View mode">
             <button
@@ -364,16 +325,24 @@ export default function TomShowcase({ isAdmin, onRequestAdminLogin, onRequestAdd
       ) : (
         <>
           {loading ? (
-            <section className="empty-state">
-              <div className="empty-state__icon" style={{ animation: "spin 1s linear infinite" }}>⚙️</div>
-              <h2 className="empty-state__title">Loading mechanisms…</h2>
+            <section className="tom-grid">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="tom-card--skeleton">
+                  <div className="skeleton-thumb" />
+                  <div className="skeleton-body">
+                    <div className="skeleton-line skeleton-line--title" />
+                    <div className="skeleton-line" />
+                    <div className="skeleton-line skeleton-line--short" />
+                  </div>
+                </div>
+              ))}
             </section>
           ) : sortedAndFiltered.length === 0 ? (
             <section className="empty-state">
               <div className="empty-state__icon">🔍</div>
               <h2 className="empty-state__title">No mechanisms found</h2>
               <p className="empty-state__copy">
-                Try another keyword, clear the category filter, or add the first mechanism to this category.
+                Try another keyword or filter criteria.
               </p>
             </section>
           ) : viewMode === "table" ? (

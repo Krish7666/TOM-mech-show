@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { memo, useState } from "react";
 import { tomCategoryMeta } from "./tomConstants";
 
-export default function MechanismCard({ mechanism, onView }) {
+const MechanismCard = memo(function MechanismCard({ mechanism, onView }) {
   const [imgError, setImgError] = useState(false);
 
   const directCover =
@@ -150,12 +150,64 @@ export default function MechanismCard({ mechanism, onView }) {
             Explore →
           </span>
         </div>
-        <p className="tom-card__student">
-          <span className="tom-card__student-badge">
-            👤 {mechanism.student_name || "Student Project"}
-          </span>
-        </p>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "6px", marginTop: "8px" }}>
+          <p className="tom-card__student" style={{ margin: 0 }}>
+            <span className="tom-card__student-badge">
+              👤 {mechanism.student_name || "Student Project"}
+            </span>
+          </p>
+          <div style={{ display: "flex", gap: "4px", alignItems: "center", flexWrap: "wrap" }}>
+            {mechanism.academic_year && (
+              <span
+                style={{
+                  fontSize: "0.68rem",
+                  color: "#a78bfa",
+                  background: "rgba(167, 139, 250, 0.12)",
+                  border: "1px solid rgba(167, 139, 250, 0.3)",
+                  padding: "2px 7px",
+                  borderRadius: "999px",
+                  fontWeight: 600,
+                }}
+              >
+                🎓 {mechanism.academic_year}
+              </span>
+            )}
+            {mechanism.degrees_of_freedom !== undefined && (
+              <span
+                style={{
+                  fontSize: "0.68rem",
+                  color: "#34d399",
+                  background: "rgba(52, 211, 153, 0.12)",
+                  border: "1px solid rgba(52, 211, 153, 0.3)",
+                  padding: "2px 7px",
+                  borderRadius: "999px",
+                  fontWeight: 600,
+                }}
+              >
+                {mechanism.degrees_of_freedom} DOF
+              </span>
+            )}
+            {(mechanism.html_animation_url || (mechanism.animation_url && mechanism.animation_url.toLowerCase().includes(".html"))) && (
+              <span
+                style={{
+                  fontSize: "0.68rem",
+                  color: "#38bdf8",
+                  background: "rgba(56, 189, 248, 0.12)",
+                  border: "1px solid rgba(56, 189, 248, 0.3)",
+                  padding: "2px 7px",
+                  borderRadius: "999px",
+                  fontWeight: 600,
+                }}
+              >
+                🌐 HTML
+              </span>
+            )}
+          </div>
+        </div>
+
       </div>
     </article>
   );
-}
+});
+
+export default MechanismCard;

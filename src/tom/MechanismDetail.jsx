@@ -1,21 +1,20 @@
 import { useEffect, useMemo, useState } from "react";
 import { tomCategoryMeta } from "./tomConstants";
 import { fetchMechanismDetail, deleteMechanism, deleteMechanismMedia, approveMechanism, rejectMechanism } from "./tomApi";
-import MechanismPreview from "./MechanismPreview.jsx";
 import { analyzeMechanism } from "./kinematics.js";
-import KinematicWorkbench from "./KinematicWorkbench.jsx";
 import FourBarVirtualLab from "./FourBarVirtualLab.jsx";
+import KinematicWorkbench from "./KinematicWorkbench.jsx";
 
-const TABS = ["Overview", "Animation", "Virtual Lab", "Kinematic Solver", "Images", "Videos", "CAD", "Documents"];
+const TABS = ["Overview", "Animation", "Virtual Lab", "Kinematic Solver", "Images", "Videos", "Documents"];
 
 function tabForType(type) {
   if (type === "image" || type === "drawing") return "Images";
   if (type === "video") return "Videos";
   if (type === "animation") return "Animation";
   if (type === "virtual_mechanism") return "Virtual Lab";
-  if (type === "cad") return "CAD";
   return "Documents";
 }
+
 
 function getVideoEmbedUrl(rawUrl) {
   if (!rawUrl || typeof rawUrl !== "string") return null;
@@ -65,6 +64,18 @@ function isSafeUrl(rawUrl) {
   );
 }
 
+function isHtmlAnimationUrl(rawUrl) {
+  if (!rawUrl || typeof rawUrl !== "string") return false;
+  const u = rawUrl.trim().toLowerCase();
+  return (
+    u.endsWith(".html") ||
+    u.endsWith(".htm") ||
+    u.includes(".html?") ||
+    u.includes(".htm?") ||
+    u.startsWith("data:text/html")
+  );
+}
+
 export default function MechanismDetail({ id, isAdmin, onBack, onChanged }) {
   const [mechanism, setMechanism] = useState(null);
   const [media, setMedia] = useState([]);
@@ -90,14 +101,41 @@ export default function MechanismDetail({ id, isAdmin, onBack, onChanged }) {
     return () => { cancelled = true; };
   }, [id]);
 
+  const htmlAnimationUrl = useMemo(() => {
+    if (mechanism?.html_animation_url && isHtmlAnimationUrl(mechanism.html_animation_url)) {
+      return mechanism.html_animation_url.trim();
+    }
+    if (mechanism?.animation_url && isHtmlAnimationUrl(mechanism.animation_url)) {
+      return mechanism.animation_url.trim();
+    }
+    const animRow = media.find((m) => m.file_type === "animation" && isHtmlAnimationUrl(m.file_url));
+    if (animRow) return animRow.file_url.trim();
+    if (Array.isArray(mechanism?.external_links)) {
+      const link = mechanism.external_links.find((l) => isHtmlAnimationUrl(l));
+      if (link) return link.trim();
+    }
+    return null;
+  }, [mechanism, media]);
+
   const mediaByTab = useMemo(() => {
-    const groups = { Images: [], Videos: [], Animation: [], "Virtual Lab": [], CAD: [], Documents: [] };
+    const groups = { Images: [], Videos: [], Animation: [], "Virtual Lab": [], Documents: [] };
     media.forEach((m) => {
       const tab = tabForType(m.file_type);
       if (groups[tab]) groups[tab].push(m);
     });
 
-    if (mechanism?.animation_url) {
+
+    if (htmlAnimationUrl && !groups.Animation.some((v) => v.file_url === htmlAnimationUrl)) {
+      groups.Animation.unshift({
+        id: "student-html-anim-url",
+        mechanism_id: id,
+        file_type: "animation",
+        file_name: "Interactive HTML Mechanism Animation",
+        file_url: htmlAnimationUrl,
+        is_embed: true,
+        is_html: true,
+      });
+    } else if (mechanism?.animation_url) {
       const animLink = mechanism.animation_url.trim();
       if (animLink && !groups.Animation.some((v) => v.file_url === animLink)) {
         groups.Animation.push({
@@ -143,17 +181,19 @@ export default function MechanismDetail({ id, isAdmin, onBack, onChanged }) {
     }
 
     return groups;
-  }, [media, mechanism, id]);
+  }, [media, mechanism, id, htmlAnimationUrl]);
 
   const analysis = useMemo(() => (mechanism ? analyzeMechanism(mechanism) : null), [mechanism]);
 
   const availableTabs = useMemo(
-    () => TABS.filter((t) => {
-      if (t === "Overview" || t === "Kinematic Solver" || t === "Animation" || t === "Virtual Lab") return true;
-      return mediaByTab[t]?.length > 0;
-    }),
+    () =>
+      TABS.filter((t) => {
+        if (t === "Overview" || t === "Kinematic Solver" || t === "Animation" || t === "Virtual Lab") return true;
+        return mediaByTab[t]?.length > 0;
+      }),
     [mediaByTab],
   );
+
 
   async function handleDeleteMechanism() {
     if (!window.confirm("Delete this mechanism and all its media? This can't be undone.")) return;
@@ -254,8 +294,29 @@ export default function MechanismDetail({ id, isAdmin, onBack, onChanged }) {
       )}
 
       <header className="tom-detail__header" style={{ "--card-accent": meta.color }}>
-        <div className="tom-detail__category-badge">
-          <span>{meta.icon}</span><span>{mechanism.category || "Other"}</span>
+        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: 8 }}>
+          <div className="tom-detail__category-badge">
+            <span>{meta.icon}</span><span>{mechanism.category || "Other"}</span>
+          </div>
+          {htmlAnimationUrl && (
+            <span
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+                padding: "4px 12px",
+                borderRadius: "999px",
+                background: "rgba(56, 189, 248, 0.15)",
+                border: "1px solid rgba(56, 189, 248, 0.35)",
+                color: "#38bdf8",
+                fontSize: "0.78rem",
+                fontWeight: 700,
+                letterSpacing: "0.02em",
+              }}
+            >
+              🌐 Interactive HTML Animation Available
+            </span>
+          )}
         </div>
         <h1 className="tom-detail__title">{mechanism.name}</h1>
         <p className="tom-detail__uploader">
@@ -287,14 +348,15 @@ export default function MechanismDetail({ id, isAdmin, onBack, onChanged }) {
           <button key={tab} type="button" role="tab" aria-selected={activeTab === tab}
             className={`tom-detail__tab${activeTab === tab ? " tom-detail__tab--active" : ""}`}
             onClick={() => setActiveTab(tab)}>
-            {tab === "Kinematic Solver" ? "⚙️ Movement Calculator" : tab === "Animation" ? "🌀 Animation" : tab === "Virtual Lab" ? "🔬 Virtual Lab" : tab}
+            {tab === "Kinematic Solver" ? "⚙️ Movement Calculator" : tab === "Animation" ? (htmlAnimationUrl ? "🌐 HTML Animation" : "🌀 Animation") : tab === "Virtual Lab" ? "🔬 Virtual Lab" : tab}
           </button>
         ))}
       </div>
 
+
       <div className="tom-detail__panel">
         {activeTab === "Overview" ? (
-          <OverviewPanel mechanism={mechanism} />
+          <OverviewPanel mechanism={mechanism} htmlAnimationUrl={htmlAnimationUrl} />
         ) : activeTab === "Virtual Lab" ? (
           <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: "24px" }}>
             {(mechanism.virtual_mechanism_url || (mediaByTab["Virtual Lab"] && mediaByTab["Virtual Lab"].length > 0)) && (
@@ -318,10 +380,10 @@ export default function MechanismDetail({ id, isAdmin, onBack, onChanged }) {
                       color: "#38bdf8",
                       letterSpacing: "0.08em"
                     }}>
-                      ⚡ Student Virtual Mechanism
+                      ⚡ {mechanism.student_name ? `${mechanism.student_name}'s Simulation` : "Student Simulation"}
                     </span>
                     <h3 style={{ margin: "4px 0 0", color: "#f8fafc", fontSize: "1.15rem" }}>
-                      Interactive Virtual Mechanism Simulation
+                      {mechanism.name} — Interactive Simulation
                     </h3>
                   </div>
                   {mechanism.virtual_mechanism_url && isSafeUrl(mechanism.virtual_mechanism_url) && (
@@ -349,7 +411,7 @@ export default function MechanismDetail({ id, isAdmin, onBack, onChanged }) {
                   }}>
                     <iframe
                       src={getVideoEmbedUrl(mechanism.virtual_mechanism_url.trim()) || mechanism.virtual_mechanism_url.trim()}
-                      title="Student Virtual Mechanism"
+                      title={`${mechanism.name} Simulation`}
                       sandbox="allow-scripts allow-same-origin allow-popups allow-forms allow-downloads"
                       style={{ width: "100%", height: "100%", border: 0 }}
                       allow="accelerometer; autoplay; encrypted-media; gyroscope; fullscreen"
@@ -388,7 +450,8 @@ export default function MechanismDetail({ id, isAdmin, onBack, onChanged }) {
                 ))}
               </div>
             )}
-            <FourBarVirtualLab initialMechanism={mechanism} />
+
+            <FourBarVirtualLab initialMechanism={mechanism} standalone={false} />
           </div>
         ) : activeTab === "Kinematic Solver" ? (
           <KinematicWorkbench
@@ -411,7 +474,7 @@ export default function MechanismDetail({ id, isAdmin, onBack, onChanged }) {
             isAdmin={isAdmin}
             onDelete={handleDeleteMedia}
             mechanism={mechanism}
-            analysis={analysis}
+            htmlAnimationUrl={htmlAnimationUrl}
             onOpenVirtualLab={() => setActiveTab("Virtual Lab")}
           />
         )}
@@ -481,7 +544,8 @@ export default function MechanismDetail({ id, isAdmin, onBack, onChanged }) {
   );
 }
 
-function OverviewPanel({ mechanism }) {
+function OverviewPanel({ mechanism, htmlAnimationUrl }) {
+  const [reloadKey, setReloadKey] = useState(0);
   const rawCover = mechanism.cover_image || mechanism.preview_image_url || mechanism.image || null;
   const cover =
     rawCover && typeof rawCover === "string" && !rawCover.startsWith("data:image/svg+xml")
@@ -490,7 +554,77 @@ function OverviewPanel({ mechanism }) {
 
   return (
     <div className="tom-overview">
-      {cover && (
+      {/* ── INTERACTIVE HTML ANIMATION (EMBEDDED ON MECHANISM PAGE) ── */}
+      {htmlAnimationUrl && (
+        <div
+          style={{
+            marginBottom: 24,
+            borderRadius: 18,
+            overflow: "hidden",
+            border: "1px solid rgba(56, 189, 248, 0.4)",
+            background: "linear-gradient(135deg, rgba(56, 189, 248, 0.1), rgba(14, 165, 233, 0.04))",
+            boxShadow: "0 12px 32px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(56, 189, 248, 0.15)",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              padding: "12px 18px",
+              background: "rgba(10, 16, 28, 0.88)",
+              borderBottom: "1px solid rgba(56, 189, 248, 0.2)",
+              flexWrap: "wrap",
+              gap: 10,
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <span style={{ fontSize: "1.25rem" }}>🌐</span>
+              <div>
+                <strong style={{ color: "#f8fafc", fontSize: "0.98rem", display: "block" }}>
+                  Interactive Mechanism Animation
+                </strong>
+                <span style={{ fontSize: "0.76rem", color: "#38bdf8", fontFamily: "var(--font-mono, monospace)" }}>
+                  HTML Animation (.html) · Submitted by {mechanism.student_name || "Student"}
+                </span>
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <button
+                type="button"
+                className="secondary-btn secondary-btn--small"
+                style={{ padding: "5px 12px", fontSize: "0.78rem" }}
+                onClick={() => setReloadKey((k) => k + 1)}
+                title="Restart Animation"
+              >
+                🔄 Reload Animation
+              </button>
+              <a
+                href={htmlAnimationUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="primary-btn"
+                style={{ padding: "5px 14px", fontSize: "0.78rem", minHeight: "32px", textDecoration: "none" }}
+              >
+                Open Fullscreen ↗
+              </a>
+            </div>
+          </div>
+
+          <div style={{ width: "100%", height: "480px", background: "#050811", position: "relative" }}>
+            <iframe
+              key={reloadKey}
+              src={htmlAnimationUrl}
+              title={`${mechanism.name} Interactive HTML Animation`}
+              sandbox="allow-scripts allow-same-origin allow-popups allow-forms allow-downloads"
+              style={{ width: "100%", height: "100%", border: 0, display: "block" }}
+              allow="accelerometer; autoplay; encrypted-media; gyroscope"
+            />
+          </div>
+        </div>
+      )}
+
+      {cover && !htmlAnimationUrl && (
         <div className="tom-overview__media-hero" style={{ marginBottom: 20, borderRadius: 16, overflow: "hidden", border: "1px solid var(--border)", maxHeight: 380, background: "rgba(0,0,0,0.2)" }}>
           <img
             src={cover}
@@ -558,30 +692,75 @@ function VideoPlayerItem({ row }) {
   return <video className="tom-media-item__video" src={row.file_url} controls preload="metadata" />;
 }
 
-function MediaPanel({ items, tab, isAdmin, onDelete, mechanism, analysis, onOpenVirtualLab }) {
+function MediaPanel({ items, tab, isAdmin, onDelete, mechanism, htmlAnimationUrl, onOpenVirtualLab }) {
+  const [animReloadKey, setAnimReloadKey] = useState(0);
+  const [selectedStlIdx, setSelectedStlIdx] = useState(0);
+
   if (tab === "Animation") {
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-        {mechanism && analysis && (
-          <div>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, flexWrap: "wrap", gap: 10 }}>
-              <p style={{ margin: 0, color: "var(--muted)", font: "500 0.9rem var(--font-body)" }}>
-                Interactive animation showing how this mechanism moves:
-              </p>
-              {onOpenVirtualLab && (
+        {/* Featured Student HTML Animation */}
+        {htmlAnimationUrl && (
+          <div
+            style={{
+              borderRadius: 18,
+              overflow: "hidden",
+              border: "1px solid rgba(56, 189, 248, 0.4)",
+              background: "linear-gradient(135deg, rgba(56, 189, 248, 0.1), rgba(14, 165, 233, 0.04))",
+              boxShadow: "0 10px 30px rgba(0, 0, 0, 0.4)",
+              marginBottom: 10,
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                padding: "12px 18px",
+                background: "rgba(10, 16, 28, 0.88)",
+                borderBottom: "1px solid rgba(56, 189, 248, 0.2)",
+                flexWrap: "wrap",
+                gap: 8,
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ fontSize: "1.2rem" }}>🌐</span>
+                <strong style={{ fontSize: "0.95rem", color: "#38bdf8" }}>
+                  Interactive Mechanism Animation (HTML)
+                </strong>
+              </div>
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                 <button
                   type="button"
-                  className="button button--secondary button--toolbar"
-                  onClick={onOpenVirtualLab}
-                  style={{ fontSize: "0.84rem", borderColor: "rgba(56, 189, 248, 0.4)", color: "#38bdf8", display: "inline-flex", alignItems: "center", gap: 6 }}
+                  className="secondary-btn secondary-btn--small"
+                  onClick={() => setAnimReloadKey((k) => k + 1)}
                 >
-                  🔬 Open Mechanism Simulator →
+                  🔄 Reload
                 </button>
-              )}
+                <a
+                  href={htmlAnimationUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="primary-btn"
+                  style={{ padding: "5px 14px", fontSize: "0.78rem", minHeight: "32px", textDecoration: "none" }}
+                >
+                  Open Full View ↗
+                </a>
+              </div>
             </div>
-            <MechanismPreview mechanism={mechanism} analysis={analysis} />
+            <div style={{ width: "100%", height: "500px", background: "#050811" }}>
+              <iframe
+                key={animReloadKey}
+                src={htmlAnimationUrl}
+                title={`${mechanism?.name || "Mechanism"} Interactive Animation`}
+                sandbox="allow-scripts allow-same-origin allow-popups allow-forms allow-downloads"
+                style={{ width: "100%", height: "100%", border: 0, display: "block" }}
+                allow="accelerometer; autoplay; encrypted-media; gyroscope"
+              />
+            </div>
           </div>
         )}
+
         {items.length > 0 && (
           <div className="tom-media-gallery" style={{ marginTop: 12 }}>
             {items.map((row) => (
@@ -599,6 +778,24 @@ function MediaPanel({ items, tab, isAdmin, onDelete, mechanism, analysis, onOpen
             ))}
           </div>
         )}
+
+        {!htmlAnimationUrl && items.length === 0 && (
+          <div style={{ textAlign: "center", padding: "32px 16px" }}>
+            <p className="tom-overview__empty" style={{ margin: "0 0 14px" }}>
+              No animation uploaded yet by student.
+            </p>
+            {onOpenVirtualLab && (
+              <button
+                type="button"
+                className="button button--secondary"
+                onClick={onOpenVirtualLab}
+                style={{ borderColor: "rgba(56, 189, 248, 0.4)", color: "#38bdf8" }}
+              >
+                🔬 Open Virtual Lab Simulator for this Mechanism →
+              </button>
+            )}
+          </div>
+        )}
       </div>
     );
   }
@@ -606,6 +803,7 @@ function MediaPanel({ items, tab, isAdmin, onDelete, mechanism, analysis, onOpen
   if (items.length === 0) {
     return <p className="tom-overview__empty">No {tab.toLowerCase()} uploaded yet.</p>;
   }
+
   return (
     <div className="tom-media-gallery">
       {items.map((row) => (

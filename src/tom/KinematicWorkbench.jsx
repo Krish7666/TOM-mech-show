@@ -6,11 +6,7 @@ import FourBarVirtualLab from "./FourBarVirtualLab";
 const PRESETS = [
   { name: "Four-Bar Linkage", links: 4, joints: 4, higherPairs: 0, category: "Linkages" },
   { name: "Slider-Crank Linkage", links: 4, joints: 4, higherPairs: 0, category: "Slider-crank" },
-  { name: "Cam & Roller Follower", links: 3, joints: 2, higherPairs: 1, category: "Cam mechanisms" },
-  { name: "Gear Train (Meshed Pair)", links: 3, joints: 2, higherPairs: 1, category: "Gear mechanisms" },
   { name: "Ackermann Steering", links: 6, joints: 7, higherPairs: 0, category: "Steering mechanisms" },
-  { name: "Five-Bar 2-DOF Linkage", links: 5, joints: 5, higherPairs: 0, category: "Robotics / Multi-DOF" },
-  { name: "Rigid Triangular Truss", links: 3, joints: 3, higherPairs: 0, category: "Structure" },
 ];
 
 export default function KinematicWorkbench({ initialMechanism = null, onApply = null }) {
@@ -90,7 +86,7 @@ export default function KinematicWorkbench({ initialMechanism = null, onApply = 
 
       {activeTool === "vlab" ? (
         <div style={{ marginTop: 8 }}>
-          <FourBarVirtualLab />
+          <FourBarVirtualLab initialMechanism={initialMechanism} standalone={false} />
         </div>
       ) : (
         <>

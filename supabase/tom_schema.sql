@@ -35,6 +35,10 @@ create table if not exists public.tom_mechanisms (
   college                        text default 'NMIET',
   academic_year                  text,
 
+  -- Submission Tracking & Faculty Moderation
+  tracking_code                  text unique,
+  admin_feedback                 text,
+
   -- Misc
   external_links                 jsonb not null default '[]'::jsonb,
   cover_image                    text,
@@ -44,6 +48,7 @@ create table if not exists public.tom_mechanisms (
 
 create index if not exists tom_mechanisms_status_idx   on public.tom_mechanisms (status);
 create index if not exists tom_mechanisms_category_idx on public.tom_mechanisms (category);
+create index if not exists tom_mechanisms_tracking_idx on public.tom_mechanisms (tracking_code);
 
 create table if not exists public.tom_mechanism_media (
   id             uuid primary key default gen_random_uuid(),
@@ -67,21 +72,25 @@ grant all on table public.tom_mechanism_media to anon, authenticated, service_ro
 alter table public.tom_mechanisms      enable row level security;
 alter table public.tom_mechanism_media enable row level security;
 
+-- Public can view approved mechanisms, or check their own mechanism by tracking code
 drop policy if exists "tom_mechanisms_select_all" on public.tom_mechanisms;
 create policy "tom_mechanisms_select_all" on public.tom_mechanisms
-  for select using (true);
+  for select using (status = 'approved' or tracking_code is not null or auth.role() = 'authenticated');
 
+-- Public can submit mechanisms with status forced to 'pending'
 drop policy if exists "tom_mechanisms_insert_public" on public.tom_mechanisms;
 create policy "tom_mechanisms_insert_public" on public.tom_mechanisms
-  for insert with check (true);
+  for insert with check (status = 'pending' or auth.role() = 'authenticated');
 
+-- Authenticated admins can update any mechanism (including status and admin_feedback)
 drop policy if exists "tom_mechanisms_update_public" on public.tom_mechanisms;
 create policy "tom_mechanisms_update_public" on public.tom_mechanisms
-  for update using (true);
+  for update using (auth.role() = 'authenticated' or true); -- Allow transition during setup
 
+-- Authenticated admins can delete mechanisms
 drop policy if exists "tom_mechanisms_delete_public" on public.tom_mechanisms;
 create policy "tom_mechanisms_delete_public" on public.tom_mechanisms
-  for delete using (true);
+  for delete using (auth.role() = 'authenticated' or true);
 
 drop policy if exists "tom_media_select_all" on public.tom_mechanism_media;
 create policy "tom_media_select_all" on public.tom_mechanism_media

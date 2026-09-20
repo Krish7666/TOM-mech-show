@@ -44,6 +44,7 @@ export function solveFourBar(rawL1, rawL2, rawL3, rawL4, theta2_deg = 0) {
     const denom = -B - Math.sqrt(disc);
     t = Math.abs(denom) > 1e-7 ? (C - A) / denom : 0;
   }
+  if (!Number.isFinite(t)) return null;
   const theta4 = 2 * Math.atan(t);
   const O2 = { x: 0, y: 0 };
   const O4 = { x: L1, y: 0 };
@@ -57,6 +58,28 @@ export function solveFourBar(rawL1, rawL2, rawL3, rawL4, theta2_deg = 0) {
   const mu_deg = (mu_rad * 180) / Math.PI;
 
   return { O2, O4, A: A_joint, B: B_joint, theta3, theta4, mu_deg };
+}
+
+/**
+ * Cross-browser rounded rectangle drawing with fallback for browsers lacking ctx.roundRect.
+ */
+export function safeRoundRect(ctx, x, y, w, h, r = 4) {
+  if (typeof ctx.roundRect === "function") {
+    ctx.roundRect(x, y, w, h, r);
+  } else {
+    const radius = Math.min(r || 0, Math.abs(w) / 2, Math.abs(h) / 2);
+    ctx.beginPath();
+    ctx.moveTo(x + radius, y);
+    ctx.lineTo(x + w - radius, y);
+    ctx.quadraticCurveTo(x + w, y, x + w, y + radius);
+    ctx.lineTo(x + w, y + h - radius);
+    ctx.quadraticCurveTo(x + w, y + h, x + w - radius, y + h);
+    ctx.lineTo(x + radius, y + h);
+    ctx.quadraticCurveTo(x, y + h, x, y + h - radius);
+    ctx.lineTo(x, y + radius);
+    ctx.quadraticCurveTo(x, y, x + radius, y);
+    ctx.closePath();
+  }
 }
 
 /**

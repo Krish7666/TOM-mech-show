@@ -36,15 +36,68 @@ export async function sha256Hex(text) {
     .join("");
 }
 
-export async function verifyAdminCredentials(username, password) {
-  if (!username || !password) return false;
-  if (username.trim().toLowerCase() !== ADMIN_USERNAME) return false;
+/**
+ * Verifies admin credentials via three paths:
+ *   1. Supabase Auth (Email / Password) if an email is provided and Supabase is configured.
+ *   2. VITE_ADMIN_PASSWORD env var — allows overriding via deployment config.
+ *   3. SHA-256 hash comparison against the stored hash constant.
+ *
+ * Returns an object: { success: boolean, authMode: "supabase" | "local", error?: string }
+ */
+export async function verifyAdminCredentials(usernameOrEmail, password) {
+  if (!usernameOrEmail || !password) return { success: false };
+  const identifier = usernameOrEmail.trim();
 
-  const envPass = import.meta.env.VITE_ADMIN_PASSWORD;
-  if (envPass && password === envPass) return true;
-  if (password === "Krish8852") return true;
+  // 1. Supabase Auth if email format
+  if (supabase && identifier.includes("@")) {
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: identifier,
+        password,
+      });
+      if (!error && data?.session) {
+        return { success: true, authMode: "supabase", user: data.user };
+      }
+      if (error) {
+        return { success: false, error: error.message };
+      }
+    } catch (e) {
+      // If network fails, proceed to local check if username happens to match
+    }
+  }
 
-  const hash = await sha256Hex(password);
-  return hash === ADMIN_PASSWORD_HASH;
+  // 2. Local / fallback admin username check
+  if (identifier.toLowerCase() === ADMIN_USERNAME) {
+    const envPass = import.meta.env.VITE_ADMIN_PASSWORD;
+    if (envPass && password === envPass) {
+      return { success: true, authMode: "local" };
+    }
+
+    const hash = await sha256Hex(password);
+    if (hash === ADMIN_PASSWORD_HASH) {
+      return { success: true, authMode: "local" };
+    }
+  }
+
+  return { success: false, error: "Invalid administrator credentials." };
 }
+
+/**
+ * Cleanly signs out from Supabase Auth and clears the local session flag.
+ */
+export async function adminSignOut() {
+  if (supabase) {
+    try {
+      await supabase.auth.signOut();
+    } catch {
+      // ignore
+    }
+  }
+  try {
+    localStorage.removeItem(ADMIN_SESSION_KEY);
+  } catch {
+    // ignore
+  }
+}
+
 

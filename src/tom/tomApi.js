@@ -1,6 +1,5 @@
 import { supabase } from "../lib/supabaseClient";
 import {
-  BUILTIN_MECHANISMS,
   MECHANISM_STATUS,
 } from "./tomConstants";
 
@@ -13,11 +12,30 @@ function missingSupabaseError() {
   return new Error("Supabase is not configured. Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON to your .env file.");
 }
 
+
+/**
+ * Client-side file validation for upload safety and size constraints.
+ */
+export function validateUploadFile(file) {
+  if (!file) return { valid: true };
+  const MAX_SIZE_MB = 25;
+  if (file.size > MAX_SIZE_MB * 1024 * 1024) {
+    return { valid: false, error: `File "${file.name}" exceeds the ${MAX_SIZE_MB}MB size limit.` };
+  }
+  const dangerousExt = /\.(exe|bat|cmd|sh|vbs|msi|dll|scr|com)$/i;
+  if (dangerousExt.test(file.name)) {
+    return { valid: false, error: `Executable or script files ("${file.name}") are not permitted.` };
+  }
+  return { valid: true };
+}
+
 export function getLocalMechanisms() {
   try {
     const raw = localStorage.getItem(LOCAL_STORAGE_KEY);
     const list = raw ? JSON.parse(raw) : [];
-    return list.map((m) => ({ ...m, status: MECHANISM_STATUS.APPROVED }));
+    return list
+      .filter((m) => m && !String(m.id || "").startsWith("builtin-"))
+      .map((m) => ({ ...m, status: m.status || MECHANISM_STATUS.APPROVED }));
   } catch (err) {
     console.warn("Could not read local mechanisms:", err);
     return [];
@@ -98,22 +116,23 @@ function resizeImageToThumbnail(file, maxWidth = 800, maxHeight = 600, quality =
 
 function readFileAsDataUrl(file) {
   return new Promise((resolve) => {
-    if (!file) return resolve("");
-    // If file is very large (> 3.5MB), fallback to blob URL to protect localStorage quota
+    if (!file) return resolve({ url: "", blobOnly: false });
+    // If file is very large (> 3.5MB), fallback to blob URL to protect localStorage quota.
+    // Blob URLs are session-scoped and won't survive a page refresh.
     if (file.size > 3.5 * 1024 * 1024) {
       try {
-        return resolve(URL.createObjectURL(file));
+        return resolve({ url: URL.createObjectURL(file), blobOnly: true });
       } catch {
-        return resolve("");
+        return resolve({ url: "", blobOnly: false });
       }
     }
     const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
+    reader.onload = () => resolve({ url: reader.result, blobOnly: false });
     reader.onerror = () => {
       try {
-        resolve(URL.createObjectURL(file));
+        resolve({ url: URL.createObjectURL(file), blobOnly: true });
       } catch {
-        resolve("");
+        resolve({ url: "", blobOnly: false });
       }
     };
     reader.readAsDataURL(file);
@@ -160,13 +179,12 @@ export async function fetchApprovedMechanisms() {
   // Deduplicate and merge:
   // 1. Local student submissions (most recent first)
   // 2. Supabase approved mechanisms
-  // 3. Built-in interactive mechanisms (5 core models)
   const seenIds = new Set();
   const merged = [];
 
   for (const m of localList) {
     const key = String(m.id);
-    if (!seenIds.has(key)) {
+    if (!key.startsWith("builtin-") && !seenIds.has(key)) {
       seenIds.add(key);
       merged.push(m);
     }
@@ -174,15 +192,7 @@ export async function fetchApprovedMechanisms() {
 
   for (const m of supabaseList) {
     const key = String(m.id);
-    if (!seenIds.has(key)) {
-      seenIds.add(key);
-      merged.push(m);
-    }
-  }
-
-  for (const m of BUILTIN_MECHANISMS) {
-    const key = String(m.id);
-    if (!seenIds.has(key)) {
+    if (!key.startsWith("builtin-") && !seenIds.has(key)) {
       seenIds.add(key);
       merged.push(m);
     }
@@ -240,25 +250,7 @@ export async function fetchPendingMechanisms() {
 export async function fetchMechanismDetail(id) {
   const targetId = String(id);
 
-  // 1. Check built-in interactive mechanisms first
-  const builtIn = BUILTIN_MECHANISMS.find((m) => String(m.id) === targetId);
-  if (builtIn) {
-    const rawImage = builtIn.cover_image || builtIn.image;
-    const cleanImage = rawImage && typeof rawImage === "string" && !rawImage.startsWith("data:image/svg+xml") ? rawImage : null;
-    const media = [];
-    if (builtIn.external_links?.[0]) {
-      media.push({
-        id: "media-builtin-" + builtIn.id,
-        mechanism_id: builtIn.id,
-        file_type: "video",
-        file_name: "Working Demonstration",
-        file_url: builtIn.external_links[0],
-      });
-    }
-    return { mechanism: { ...builtIn, cover_image: cleanImage, preview_image_url: cleanImage }, media, error: null };
-  }
-
-  // 2. Check local student submissions
+  // 1. Check local student submissions
   const localItems = getLocalMechanisms();
   const local = localItems.find((m) => String(m.id) === targetId);
   if (local) {
@@ -290,12 +282,15 @@ export async function fetchMechanismDetail(id) {
 
 // ─── WRITE ──────────────────────────────────────────────────────────────────
 
+
 /**
- * Creates a mechanism and saves it directly to the local repository,
+ * Creates a mechanism and saves it to the local repository,
  * and simultaneously uploads to Supabase if configured.
- * Student submissions appear immediately in the Cloud Repository!
+ *
+ * Student submissions are created as PENDING (awaiting admin review).
+ * Pass { approved: true } as the third argument for admin-added mechanisms.
  */
-export async function submitMechanism(formValues, filesByType) {
+export async function submitMechanism(formValues, filesByType, { approved = false } = {}) {
   const links = formValues.num_links ? Number(formValues.num_links) : 4;
   const joints = formValues.num_joints ? Number(formValues.num_joints) : 4;
   const higherPairs = formValues.higher_pairs ? Number(formValues.higher_pairs) : 0;
@@ -306,6 +301,7 @@ export async function submitMechanism(formValues, filesByType) {
   // Extract uploaded files for instant local display
   const localMedia = [];
   let localCoverImage = formValues.cover_image || null;
+  let hasBlobOnlyFiles = false;
 
   for (const [type, files] of Object.entries(filesByType || {})) {
     const list = files ? Array.from(files) : [];
@@ -316,24 +312,45 @@ export async function submitMechanism(formValues, filesByType) {
         (file.type && file.type.startsWith("image/")) ||
         /\.(jpg|jpeg|png|webp|gif|svg)$/i.test(file.name);
 
-      const url = isImg
+      const fileUrl = isImg
         ? await resizeImageToThumbnail(file)
-        : await readFileAsDataUrl(file);
+        : (await readFileAsDataUrl(file)).url;
+
+      const { blobOnly } = isImg ? { blobOnly: false } : await readFileAsDataUrl(file).catch(() => ({ blobOnly: false }));
+      if (blobOnly) hasBlobOnlyFiles = true;
 
       if (!localCoverImage && isImg) {
-        localCoverImage = url;
+        localCoverImage = fileUrl;
       }
       localMedia.push({
         id: "media-" + Date.now() + "-" + Math.random().toString(36).slice(2, 6),
-        file_type: type,
+        file_type: type === "animation_html" ? "animation" : type,
         file_name: file.name,
-        file_url: url,
+        file_url: fileUrl,
+        format: /\.(html|htm)$/i.test(file.name) ? "html" : undefined,
       });
     }
   }
 
-  // Include direct animation link if provided
-  if (formValues.animation_url && formValues.animation_url.trim()) {
+  let htmlAnim = (formValues.html_animation_url || formValues.animation_url || "").trim();
+  if (!htmlAnim) {
+    const uploadedHtml = localMedia.find((m) => /\.(html|htm)$/i.test(m.file_name) || m.format === "html");
+    if (uploadedHtml) {
+      htmlAnim = uploadedHtml.file_url;
+    }
+  }
+
+  // Include direct HTML animation link if provided and not already in media
+  if (htmlAnim && !localMedia.some((m) => m.file_url === htmlAnim)) {
+    localMedia.push({
+      id: "media-html-anim-" + Date.now() + "-" + Math.random().toString(36).slice(2, 6),
+      file_type: "animation",
+      file_name: "Interactive HTML Animation",
+      file_url: htmlAnim,
+      is_embed: true,
+      format: "html",
+    });
+  } else if (formValues.animation_url && formValues.animation_url.trim()) {
     localMedia.push({
       id: "media-anim-" + Date.now() + "-" + Math.random().toString(36).slice(2, 6),
       file_type: "animation",
@@ -360,8 +377,10 @@ export async function submitMechanism(formValues, filesByType) {
   }
 
   const localId = "student-" + Date.now();
+
   const localMech = {
     id: localId,
+    admin_feedback: null,
     name: formValues.name.trim(),
     category: formValues.category || "Four-bar",
     short_description: formValues.short_description || (formValues.description ? (formValues.description.slice(0, 140) + (formValues.description.length > 140 ? "..." : "")) : "Student mechanism project."),
@@ -379,12 +398,14 @@ export async function submitMechanism(formValues, filesByType) {
     team_members: formValues.team_members || null,
     department: "Mechanical Engineering",
     college: "NMIET",
-    academic_year: formValues.academic_year || "SE Mech",
-    animation_url: formValues.animation_url ? formValues.animation_url.trim() : null,
+    academic_year: formValues.academic_year || "TE Mech",
+    motion_type: formValues.motion_type || "Oscillating / Rocker",
+    html_animation_url: htmlAnim || null,
+    animation_url: htmlAnim || (formValues.animation_url ? formValues.animation_url.trim() : null),
     virtual_mechanism_url: formValues.virtual_mechanism_url ? formValues.virtual_mechanism_url.trim() : null,
     external_links: [
+      ...(htmlAnim ? [htmlAnim] : []),
       ...(formValues.video_url ? [formValues.video_url.trim()] : []),
-      ...(formValues.animation_url ? [formValues.animation_url.trim()] : []),
       ...(formValues.virtual_mechanism_url ? [formValues.virtual_mechanism_url.trim()] : []),
       ...(Array.isArray(formValues.external_links)
         ? formValues.external_links
@@ -392,7 +413,7 @@ export async function submitMechanism(formValues, filesByType) {
         ? formValues.external_links.split(",").map((s) => s.trim()).filter(Boolean)
         : []),
     ],
-    status: MECHANISM_STATUS.APPROVED, // Approved locally so it appears in Cloud Repository immediately!
+    status: approved ? MECHANISM_STATUS.APPROVED : MECHANISM_STATUS.PENDING,
     cover_image: localCoverImage,
     preview_image_url: localCoverImage,
     background_image: formValues.background_image || formValues.bg_image_url || null,
@@ -427,8 +448,9 @@ export async function submitMechanism(formValues, filesByType) {
         department:                    localMech.department,
         college:                       localMech.college,
         academic_year:                 localMech.academic_year,
+        admin_feedback:                null,
         external_links:                localMech.external_links,
-        status:                        MECHANISM_STATUS.APPROVED,
+        status:                        approved ? MECHANISM_STATUS.APPROVED : MECHANISM_STATUS.PENDING,
         cover_image:                   localCoverImage,
       };
 
@@ -450,9 +472,12 @@ export async function submitMechanism(formValues, filesByType) {
             }
             const url = publicMediaUrl(path);
             if (!remoteCover && (type === "image" || type === "drawing")) remoteCover = url;
+            if (/\.(html|htm)$/i.test(file.name)) {
+              await supabase.from(MECHANISMS_TABLE).update({ html_animation_url: url }).eq("id", remoteMech.id);
+            }
             await supabase.from(MEDIA_TABLE).insert([{
               mechanism_id: remoteMech.id,
-              file_type: type,
+              file_type: type === "animation_html" ? "animation" : type,
               file_name: file.name,
               file_path: path,
               file_url: url,
@@ -468,7 +493,7 @@ export async function submitMechanism(formValues, filesByType) {
     }
   }
 
-  return { mechanism: localMech, uploadErrors, error: null };
+  return { mechanism: localMech, uploadErrors, hasBlobOnlyFiles, error: null };
 }
 
 async function uploadMechanismFile(mechanismId, type, file) {
@@ -478,9 +503,11 @@ async function uploadMechanismFile(mechanismId, type, file) {
 
   const safeName = file.name.replace(/[^\w.-]+/g, "_");
   const path = `${mechanismId}/${type}/${Date.now()}-${safeName}`;
+  const contentType = file.type || (/\.(html|htm)$/i.test(file.name) ? "text/html" : undefined);
   const { error } = await supabase.storage.from(STORAGE_BUCKET).upload(path, file, {
     cacheControl: "3600",
     upsert: false,
+    contentType,
   });
   return { error, path };
 }
@@ -497,12 +524,16 @@ export async function approveMechanism(id) {
   const idx = list.findIndex((m) => String(m.id) === String(id));
   if (idx !== -1) {
     list[idx].status = MECHANISM_STATUS.APPROVED;
+    list[idx].admin_feedback = null;
     saveLocalMechanisms(list);
   }
 
   if (supabase) {
     try {
-      await supabase.from(MECHANISMS_TABLE).update({ status: MECHANISM_STATUS.APPROVED }).eq("id", id);
+      await supabase
+        .from(MECHANISMS_TABLE)
+        .update({ status: MECHANISM_STATUS.APPROVED, admin_feedback: null })
+        .eq("id", id);
     } catch {
       // ignore
     }
@@ -510,18 +541,25 @@ export async function approveMechanism(id) {
   return { error: null };
 }
 
-/** Admin: reject a pending submission. */
-export async function rejectMechanism(id) {
+/** Admin: reject a pending submission with optional faculty feedback. */
+export async function rejectMechanism(id, feedback = "") {
   const list = getLocalMechanisms();
   const idx = list.findIndex((m) => String(m.id) === String(id));
   if (idx !== -1) {
     list[idx].status = MECHANISM_STATUS.REJECTED;
+    list[idx].admin_feedback = feedback ? feedback.trim() : null;
     saveLocalMechanisms(list);
   }
 
   if (supabase) {
     try {
-      await supabase.from(MECHANISMS_TABLE).update({ status: MECHANISM_STATUS.REJECTED }).eq("id", id);
+      await supabase
+        .from(MECHANISMS_TABLE)
+        .update({
+          status: MECHANISM_STATUS.REJECTED,
+          admin_feedback: feedback ? feedback.trim() : null,
+        })
+        .eq("id", id);
     } catch {
       // ignore
     }
