@@ -3,12 +3,16 @@ import { tomCategoryMeta } from "./tomConstants";
 import { fetchMechanismDetail, deleteMechanism, deleteMechanismMedia, approveMechanism, rejectMechanism } from "./tomApi";
 import { analyzeMechanism } from "./kinematics.js";
 
-const TABS = ["Overview", "Animation", "Images", "Videos", "Documents"];
+import { lazy, Suspense } from "react";
+const Mechanism3DViewer = lazy(() => import("./Mechanism3DViewer.jsx"));
+
+const TABS = ["Overview", "Animation", "Images", "Videos", "CAD / 3D", "Documents"];
 
 function tabForType(type) {
   if (type === "image" || type === "drawing") return "Images";
   if (type === "video") return "Videos";
   if (type === "animation") return "Animation";
+  if (type === "cad") return "CAD / 3D";
   return "Documents";
 }
 
@@ -697,6 +701,10 @@ function MediaPanel({ items, tab, isAdmin, onDelete, mechanism, htmlAnimationUrl
             <VideoPlayerItem row={row} />
           ) : row.file_type === "image" || row.file_type === "drawing" ? (
             <img className="tom-media-item__image" src={row.file_url} alt={row.file_name} />
+          ) : row.file_type === "cad" ? (
+            <Suspense fallback={<div style={{ height: 400, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#38bdf8' }}>Loading 3D Viewer...</div>}>
+              <Mechanism3DViewer url={row.file_url} />
+            </Suspense>
           ) : (
             <a className="tom-media-item__file" href={row.file_url} target="_blank" rel="noopener noreferrer">
               📄 {row.file_name}

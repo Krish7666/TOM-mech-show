@@ -9,6 +9,7 @@ const AdminPage = lazy(() => import("./pages/AdminPage.jsx"));
 const SubmitPage = lazy(() => import("./pages/SubmitPage.jsx"));
 const VLabPage = lazy(() => import("./pages/VLabPage.jsx"));
 const KinematicWorkbench = lazy(() => import("./tom/KinematicWorkbench.jsx"));
+const TomLogo3D = lazy(() => import("./components/TomLogo3D.jsx"));
 import TomLogo from "./components/TomLogo.jsx";
 import { version as APP_VERSION } from "../package.json";
 
@@ -412,9 +413,14 @@ export default function App() {
         {/* HOME */}
         {page === "home" && (
           <>
-            <section className="hero-panel">
-              <div className="hero-copy-block">
-                <div className="hero-badge">
+            <section className="hero-panel" style={{ display: "flex", flexDirection: "column", alignItems: "center", position: "relative" }}>
+              <div style={{ width: "100%", maxWidth: "600px", margin: "0 auto -40px auto", position: "relative", zIndex: 1 }}>
+                <Suspense fallback={<div style={{ height: "350px", display: "flex", alignItems: "center", justifyContent: "center", color: "#38bdf8" }}>Loading 3D Logo...</div>}>
+                  <TomLogo3D />
+                </Suspense>
+              </div>
+              <div className="hero-copy-block" style={{ zIndex: 2, position: "relative", marginTop: 0 }}>
+                <div className="hero-badge" style={{ margin: "0 auto 1.5rem auto" }}>
                   <span className="hero-badge__dot" />
                   TE Mech · 2025-28 Batch
                 </div>

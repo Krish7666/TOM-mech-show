@@ -32,13 +32,13 @@ export function tomCategoryMeta(category) {
 // ─── MEDIA TYPES ───────────────────────────────────────────────────────────────
 // file_type values stored in tom_mechanism_media.file_type
 export const MEDIA_TYPES = {
-  image:         { label: "Images",       icon: "🖼️", tab: "Images" },
-  video:         { label: "Working Video", icon: "🎬", tab: "Videos" },
-  animation:     { label: "Animation",    icon: "🌀", tab: "Animation" },
-  cad:           { label: "Technical File", icon: "📎", tab: "Documents" },
-  document:      { label: "Document/PDF", icon: "📄", tab: "Documents" },
-  drawing:       { label: "Engineering Drawing", icon: "📐", tab: "Images" },
-  other:         { label: "Other File",   icon: "📎", tab: "Documents" },
+  image:         { label: "Image / Photo",  icon: "🖼️", tab: "Images" },
+  drawing:       { label: "Blueprint",      icon: "📐", tab: "Images" },
+  video:         { label: "Video Demo",     icon: "🎬", tab: "Videos" },
+  animation:     { label: "Animation",      icon: "🌀", tab: "Animation" },
+  document:      { label: "Report / Doc",   icon: "📄", tab: "Documents" },
+  cad:           { label: "3D CAD Model",   icon: "🧩", tab: "CAD / 3D" },
+  other:         { label: "Other Asset",    icon: "📎", tab: "Documents" },
 };
 
 export function mediaTypeMeta(type) {
@@ -51,6 +51,7 @@ export const ACCEPT = {
   image: "image/*",
   video: "video/*",
   document: "application/pdf,.doc,.docx,.ppt,.pptx,.txt,.zip",
+  cad: ".stl,.obj,.step,.gltf,.glb",
   animation: ".html,.htm,video/*,image/gif,.mp4,.webm,.mov,.gif",
   animation_html: ".html,.htm,text/html",
   virtual_mechanism: ".html,.htm,.zip,.json,.js,*",

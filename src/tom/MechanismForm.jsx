@@ -614,10 +614,23 @@ export default function MechanismForm({ onCancel, onSubmit, submitting, formErro
       </div>
 
       <h3 className="tom-form__section-title" style={{ marginTop: "1.4rem" }}>
-        5. Optional Project Document / Report
+        5. 3D CAD Model & Project Document
       </h3>
       <div className="project-form__grid">
-        <label className="field field--wide" style={{ gridColumn: "1 / -1" }}>
+        <label className="field">
+          <span className="field__label">3D CAD Model (Optional)</span>
+          <input
+            className="field__control"
+            type="file"
+            accept={ACCEPT.cad}
+            onChange={(e) => handleFileChange("cad", e.target.files)}
+          />
+          <span className="field__hint" style={{ fontSize: "0.74rem", color: "var(--muted)" }}>
+            Upload STL, GLTF, or GLB for interactive 3D viewing.
+          </span>
+        </label>
+
+        <label className="field">
           <span className="field__label">Project Report or Document (Optional)</span>
           <input
             className="field__control"
