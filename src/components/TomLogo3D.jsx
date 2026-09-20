@@ -30,6 +30,8 @@ function MechanicalLogo() {
     if (core.current) {
       core.current.rotation.x = t;
       core.current.rotation.y = t * 1.2;
+      // Pulse emissive intensity
+      core.current.material.emissiveIntensity = 2 + Math.sin(t * 3) * 1.5;
     }
   });
 
@@ -38,25 +40,25 @@ function MechanicalLogo() {
       {/* Outer Ring */}
       <mesh ref={ring1}>
         <torusGeometry args={[3.5, 0.08, 16, 100]} />
-        <meshStandardMaterial color="#38bdf8" metalness={0.9} roughness={0.1} emissive="#0ea5e9" emissiveIntensity={0.5} />
+        <meshStandardMaterial color="#38bdf8" metalness={0.9} roughness={0.1} emissive="#0ea5e9" emissiveIntensity={1.2} />
       </mesh>
       
       {/* Middle Ring */}
       <mesh ref={ring2} rotation={[Math.PI / 4, 0, 0]}>
         <torusGeometry args={[2.8, 0.12, 16, 100]} />
-        <meshStandardMaterial color="#818cf8" metalness={0.8} roughness={0.2} emissive="#4f46e5" emissiveIntensity={0.8} />
+        <meshStandardMaterial color="#818cf8" metalness={0.8} roughness={0.2} emissive="#4f46e5" emissiveIntensity={1.5} />
       </mesh>
 
       {/* Inner Ring */}
       <mesh ref={ring3} rotation={[0, Math.PI / 4, 0]}>
         <torusGeometry args={[2.1, 0.05, 16, 100]} />
-        <meshStandardMaterial color="#fbbf24" metalness={1} roughness={0} emissive="#d97706" emissiveIntensity={0.6} />
+        <meshStandardMaterial color="#fbbf24" metalness={1} roughness={0} emissive="#d97706" emissiveIntensity={1.2} />
       </mesh>
 
       {/* Glowing Energy Core */}
       <mesh ref={core}>
         <octahedronGeometry args={[1, 0]} />
-        <meshStandardMaterial color="#ffffff" metalness={0.2} roughness={0.1} emissive="#38bdf8" emissiveIntensity={2} wireframe />
+        <meshStandardMaterial color="#ffffff" metalness={0.2} roughness={0.1} emissive="#38bdf8" emissiveIntensity={3} wireframe />
       </mesh>
       
       <mesh>
@@ -67,11 +69,11 @@ function MechanicalLogo() {
       {/* Abstract technical orbit lines */}
       <mesh rotation={[Math.PI / 2, 0, 0]}>
         <ringGeometry args={[4.5, 4.52, 64]} />
-        <meshBasicMaterial color="#38bdf8" transparent opacity={0.2} side={2} />
+        <meshBasicMaterial color="#38bdf8" transparent opacity={0.4} side={2} />
       </mesh>
       <mesh rotation={[0, Math.PI / 2, 0]}>
         <ringGeometry args={[5, 5.02, 64]} />
-        <meshBasicMaterial color="#818cf8" transparent opacity={0.15} side={2} />
+        <meshBasicMaterial color="#818cf8" transparent opacity={0.35} side={2} />
       </mesh>
     </group>
   );
@@ -80,10 +82,10 @@ function MechanicalLogo() {
 export default function TomLogo3D() {
   return (
     <div style={{ width: '100%', height: '100%', cursor: 'grab', userSelect: 'none', position: 'absolute', top: 0, left: 0 }} className="tom-logo-3d-container">
-      <Canvas camera={{ position: [0, 0, 10], fov: 50 }}>
-        <ambientLight intensity={0.6} />
-        <directionalLight position={[5, 10, 5]} intensity={1.5} color="#38bdf8" />
-        <directionalLight position={[-5, -10, -5]} intensity={1} color="#818cf8" />
+      <Canvas camera={{ position: [0, 0, 7], fov: 45 }}>
+        <ambientLight intensity={1.2} />
+        <directionalLight position={[5, 10, 5]} intensity={2.5} color="#38bdf8" />
+        <directionalLight position={[-5, -10, -5]} intensity={1.5} color="#818cf8" />
         <Float speed={1.5} rotationIntensity={0.1} floatIntensity={0.2}>
           <MechanicalLogo />
         </Float>
