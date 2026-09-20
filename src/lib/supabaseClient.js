@@ -61,7 +61,7 @@ export async function verifyAdminCredentials(usernameOrEmail, password) {
       if (error) {
         return { success: false, error: error.message };
       }
-    } catch (e) {
+    } catch {
       // If network fails, proceed to local check if username happens to match
     }
   }

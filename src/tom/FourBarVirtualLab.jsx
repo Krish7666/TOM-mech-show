@@ -592,7 +592,7 @@ export default function FourBarVirtualLab({
       ctx.font = "bold 13px 'DM Mono', monospace";
       ctx.textAlign = "center";
       ctx.fillText("⚠ Simulation error: " + (err?.message || "Check mechanism geometry"), width / 2, height / 2);
-    } catch {}
+    } catch { /* ignore fallback render error */ }
   } finally {
     ctx.restore();
   }

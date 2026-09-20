@@ -1,9 +1,7 @@
-import React, { Suspense } from 'react';
+import { Suspense } from 'react';
 import { Canvas, useLoader } from '@react-three/fiber';
 import { Stage, OrbitControls, useGLTF } from '@react-three/drei';
 import { STLLoader } from 'three-stdlib';
-import * as THREE from 'three';
-
 // STL Component
 function STLModel({ url }) {
   const geom = useLoader(STLLoader, url);

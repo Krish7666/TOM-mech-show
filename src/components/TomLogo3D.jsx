@@ -1,6 +1,6 @@
-import React, { useRef, useMemo } from 'react';
+import { useRef } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
-import { Environment, Float, ContactShadows } from '@react-three/drei';
+import { Environment, Float } from '@react-three/drei';
 
 function MechanicalLogo() {
   const group = useRef();
