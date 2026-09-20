@@ -2,16 +2,13 @@ import { useEffect, useMemo, useState } from "react";
 import { tomCategoryMeta } from "./tomConstants";
 import { fetchMechanismDetail, deleteMechanism, deleteMechanismMedia, approveMechanism, rejectMechanism } from "./tomApi";
 import { analyzeMechanism } from "./kinematics.js";
-import FourBarVirtualLab from "./FourBarVirtualLab.jsx";
-import KinematicWorkbench from "./KinematicWorkbench.jsx";
 
-const TABS = ["Overview", "Animation", "Virtual Lab", "Kinematic Solver", "Images", "Videos", "Documents"];
+const TABS = ["Overview", "Animation", "Images", "Videos", "Documents"];
 
 function tabForType(type) {
   if (type === "image" || type === "drawing") return "Images";
   if (type === "video") return "Videos";
   if (type === "animation") return "Animation";
-  if (type === "virtual_mechanism") return "Virtual Lab";
   return "Documents";
 }
 
@@ -188,7 +185,7 @@ export default function MechanismDetail({ id, isAdmin, onBack, onChanged }) {
   const availableTabs = useMemo(
     () =>
       TABS.filter((t) => {
-        if (t === "Overview" || t === "Kinematic Solver" || t === "Animation" || t === "Virtual Lab") return true;
+        if (t === "Overview" || t === "Animation") return true;
         return mediaByTab[t]?.length > 0;
       }),
     [mediaByTab],
@@ -348,7 +345,7 @@ export default function MechanismDetail({ id, isAdmin, onBack, onChanged }) {
           <button key={tab} type="button" role="tab" aria-selected={activeTab === tab}
             className={`tom-detail__tab${activeTab === tab ? " tom-detail__tab--active" : ""}`}
             onClick={() => setActiveTab(tab)}>
-            {tab === "Kinematic Solver" ? "⚙️ Movement Calculator" : tab === "Animation" ? (htmlAnimationUrl ? "🌐 HTML Animation" : "🌀 Animation") : tab === "Virtual Lab" ? "🔬 Virtual Lab" : tab}
+            {tab === "Animation" ? (htmlAnimationUrl ? "🌐 HTML Animation" : "🌀 Animation") : tab}
           </button>
         ))}
       </div>
@@ -357,116 +354,6 @@ export default function MechanismDetail({ id, isAdmin, onBack, onChanged }) {
       <div className="tom-detail__panel">
         {activeTab === "Overview" ? (
           <OverviewPanel mechanism={mechanism} htmlAnimationUrl={htmlAnimationUrl} />
-        ) : activeTab === "Virtual Lab" ? (
-          <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: "24px" }}>
-            {(mechanism.virtual_mechanism_url || (mediaByTab["Virtual Lab"] && mediaByTab["Virtual Lab"].length > 0)) && (
-              <div style={{
-                padding: "22px 24px",
-                borderRadius: "20px",
-                border: "1px solid rgba(56, 189, 248, 0.45)",
-                background: "linear-gradient(135deg, rgba(56, 189, 248, 0.12), rgba(99, 102, 241, 0.06))",
-                boxShadow: "0 10px 30px rgba(56, 189, 248, 0.15)",
-              }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12, marginBottom: 14 }}>
-                  <div>
-                    <span style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: 6,
-                      fontSize: "0.72rem",
-                      fontFamily: "var(--font-mono, monospace)",
-                      fontWeight: 700,
-                      textTransform: "uppercase",
-                      color: "#38bdf8",
-                      letterSpacing: "0.08em"
-                    }}>
-                      ⚡ {mechanism.student_name ? `${mechanism.student_name}'s Simulation` : "Student Simulation"}
-                    </span>
-                    <h3 style={{ margin: "4px 0 0", color: "#f8fafc", fontSize: "1.15rem" }}>
-                      {mechanism.name} — Interactive Simulation
-                    </h3>
-                  </div>
-                  {mechanism.virtual_mechanism_url && isSafeUrl(mechanism.virtual_mechanism_url) && (
-                    <a
-                      href={getVideoEmbedUrl(mechanism.virtual_mechanism_url.trim()) || mechanism.virtual_mechanism_url.trim()}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="primary-btn"
-                      style={{ minHeight: "38px", padding: "0 20px", fontSize: "0.85rem" }}
-                    >
-                      Open Full Simulation ↗
-                    </a>
-                  )}
-                </div>
-
-                {mechanism.virtual_mechanism_url && isSafeUrl(mechanism.virtual_mechanism_url) && (
-                  <div style={{
-                    width: "100%",
-                    height: "460px",
-                    borderRadius: "14px",
-                    overflow: "hidden",
-                    border: "1px solid rgba(255, 255, 255, 0.12)",
-                    background: "#070b14",
-                    marginBottom: 12
-                  }}>
-                    <iframe
-                      src={getVideoEmbedUrl(mechanism.virtual_mechanism_url.trim()) || mechanism.virtual_mechanism_url.trim()}
-                      title={`${mechanism.name} Simulation`}
-                      sandbox="allow-scripts allow-same-origin allow-popups allow-forms allow-downloads"
-                      style={{ width: "100%", height: "100%", border: 0 }}
-                      allow="accelerometer; autoplay; encrypted-media; gyroscope; fullscreen"
-                    />
-                  </div>
-                )}
-
-                {mediaByTab["Virtual Lab"]?.filter((r) => r.id !== "student-vm-url").map((row) => (
-                  <div key={row.id} style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    padding: "12px 16px",
-                    background: "rgba(0,0,0,0.35)",
-                    borderRadius: "12px",
-                    border: "1px solid rgba(255,255,255,0.08)",
-                    marginTop: 8
-                  }}>
-                    <span style={{ fontSize: "0.88rem", color: "#f8fafc", fontWeight: 600 }}>
-                      📦 {row.file_name}
-                    </span>
-                    <div style={{ display: "flex", gap: 10 }}>
-                      <a href={row.file_url} target="_blank" rel="noopener noreferrer" className="secondary-btn secondary-btn--cyan" style={{ minHeight: "34px", padding: "0 14px", fontSize: "0.78rem" }}>
-                        View Simulation
-                      </a>
-                      <a href={row.file_url} download className="secondary-btn" style={{ minHeight: "34px", padding: "0 14px", fontSize: "0.78rem" }}>
-                        Download
-                      </a>
-                      {isAdmin && (
-                        <button type="button" className="icon-button icon-button--danger" onClick={() => handleDeleteMedia(row)} aria-label="Remove file">
-                          🗑
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            <FourBarVirtualLab initialMechanism={mechanism} standalone={false} />
-          </div>
-        ) : activeTab === "Kinematic Solver" ? (
-          <KinematicWorkbench
-            initialMechanism={mechanism}
-            onApply={(updated) => {
-              setMechanism((cur) => ({
-                ...cur,
-                num_links: updated.links,
-                num_joints: updated.joints,
-                higher_pairs: updated.higherPairs,
-                degrees_of_freedom: updated.analysis.result,
-              }));
-              onChanged?.();
-            }}
-          />
         ) : (
           <MediaPanel
             items={mediaByTab[activeTab] || []}
@@ -475,7 +362,6 @@ export default function MechanismDetail({ id, isAdmin, onBack, onChanged }) {
             onDelete={handleDeleteMedia}
             mechanism={mechanism}
             htmlAnimationUrl={htmlAnimationUrl}
-            onOpenVirtualLab={() => setActiveTab("Virtual Lab")}
           />
         )}
       </div>
