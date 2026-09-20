@@ -1,14 +1,14 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, lazy, Suspense } from "react";
 import "./App.css";
 import "./tom/tom.css";
-import TomShowcase from "./tom/TomShowcase.jsx";
+const TomShowcase = lazy(() => import("./tom/TomShowcase.jsx"));
 import { verifyAdminCredentials, adminSignOut, isSupabaseConfigured } from "./lib/supabaseClient.js";
 import { useMechanisms } from "./context/MechanismsContext.jsx";
-import LoginPage from "./pages/LoginPage.jsx";
-import AdminPage from "./pages/AdminPage.jsx";
-import SubmitPage from "./pages/SubmitPage.jsx";
-import VLabPage from "./pages/VLabPage.jsx";
-import KinematicWorkbench from "./tom/KinematicWorkbench.jsx";
+const LoginPage = lazy(() => import("./pages/LoginPage.jsx"));
+const AdminPage = lazy(() => import("./pages/AdminPage.jsx"));
+const SubmitPage = lazy(() => import("./pages/SubmitPage.jsx"));
+const VLabPage = lazy(() => import("./pages/VLabPage.jsx"));
+const KinematicWorkbench = lazy(() => import("./tom/KinematicWorkbench.jsx"));
 import TomLogo from "./components/TomLogo.jsx";
 import { version as APP_VERSION } from "../package.json";
 
@@ -407,6 +407,7 @@ export default function App() {
 
       {/* ── MAIN ── */}
       <main className="app-layout">
+        <Suspense fallback={<div style={{ padding: "40px", textAlign: "center", color: "#94a3b8", display: "flex", alignItems: "center", justifyContent: "center", height: "50vh" }}>⚙️ Loading modules...</div>}>
 
         {/* HOME */}
         {page === "home" && (
@@ -568,6 +569,7 @@ export default function App() {
         {page === "admin" && isAdminLoggedIn && (
           <AdminPage onLogout={handleLogout} onNavigate={navigateTo} showToast={showToast} />
         )}
+        </Suspense>
       </main>
 
       {/* ── FOOTER ── */}

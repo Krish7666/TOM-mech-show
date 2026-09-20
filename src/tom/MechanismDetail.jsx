@@ -52,24 +52,23 @@ function getVideoEmbedUrl(rawUrl) {
 
 function isSafeUrl(rawUrl) {
   if (!rawUrl || typeof rawUrl !== "string") return false;
-  const trimmed = rawUrl.trim().toLowerCase();
-  return (
-    trimmed.startsWith("https://") ||
-    trimmed.startsWith("http://") ||
-    trimmed.startsWith("data:") ||
-    trimmed.startsWith("blob:")
-  );
+  try {
+    const parsed = new URL(rawUrl.trim());
+    return parsed.protocol === "https:" || parsed.protocol === "http:";
+  } catch {
+    return false;
+  }
 }
 
 function isHtmlAnimationUrl(rawUrl) {
   if (!rawUrl || typeof rawUrl !== "string") return false;
+  if (!isSafeUrl(rawUrl)) return false;
   const u = rawUrl.trim().toLowerCase();
   return (
     u.endsWith(".html") ||
     u.endsWith(".htm") ||
     u.includes(".html?") ||
-    u.includes(".htm?") ||
-    u.startsWith("data:text/html")
+    u.includes(".htm?")
   );
 }
 
@@ -406,7 +405,7 @@ export default function MechanismDetail({ id, isAdmin, onBack, onChanged }) {
         <>
           <h2 className="tom-detail__section-title">External Links</h2>
           <ul className="tom-external-links">
-            {mechanism.external_links.map((url) => (
+            {mechanism.external_links.filter(isSafeUrl).map((url) => (
               <li key={url}><a href={url} target="_blank" rel="noopener noreferrer">{url}</a></li>
             ))}
           </ul>
@@ -486,7 +485,7 @@ function OverviewPanel({ mechanism, htmlAnimationUrl }) {
                 🔄 Reload Animation
               </button>
               <a
-                href={htmlAnimationUrl}
+                href={isSafeUrl(htmlAnimationUrl) ? htmlAnimationUrl : "#"}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="primary-btn"
@@ -502,7 +501,7 @@ function OverviewPanel({ mechanism, htmlAnimationUrl }) {
               key={reloadKey}
               src={htmlAnimationUrl}
               title={`${mechanism.name} Interactive HTML Animation`}
-              sandbox="allow-scripts allow-same-origin allow-popups allow-forms allow-downloads"
+              sandbox="allow-scripts allow-popups allow-forms"
               style={{ width: "100%", height: "100%", border: 0, display: "block" }}
               allow="accelerometer; autoplay; encrypted-media; gyroscope"
             />
@@ -570,6 +569,7 @@ function VideoPlayerItem({ row }) {
           title={row.file_name || "Video Demonstration"}
           style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", border: 0 }}
           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+          sandbox="allow-scripts allow-same-origin allow-popups allow-presentation"
           allowFullScreen
         />
       </div>
@@ -580,7 +580,6 @@ function VideoPlayerItem({ row }) {
 
 function MediaPanel({ items, tab, isAdmin, onDelete, mechanism, htmlAnimationUrl, onOpenVirtualLab }) {
   const [animReloadKey, setAnimReloadKey] = useState(0);
-  const [selectedStlIdx, setSelectedStlIdx] = useState(0);
 
   if (tab === "Animation") {
     return (
@@ -624,7 +623,7 @@ function MediaPanel({ items, tab, isAdmin, onDelete, mechanism, htmlAnimationUrl
                   🔄 Reload
                 </button>
                 <a
-                  href={htmlAnimationUrl}
+                  href={isSafeUrl(htmlAnimationUrl) ? htmlAnimationUrl : "#"}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="primary-btn"
@@ -639,7 +638,7 @@ function MediaPanel({ items, tab, isAdmin, onDelete, mechanism, htmlAnimationUrl
                 key={animReloadKey}
                 src={htmlAnimationUrl}
                 title={`${mechanism?.name || "Mechanism"} Interactive Animation`}
-                sandbox="allow-scripts allow-same-origin allow-popups allow-forms allow-downloads"
+                sandbox="allow-scripts allow-popups allow-forms"
                 style={{ width: "100%", height: "100%", border: 0, display: "block" }}
                 allow="accelerometer; autoplay; encrypted-media; gyroscope"
               />

@@ -4,14 +4,14 @@ import { createClient } from "@supabase/supabase-js";
 const rawUrl =
   import.meta.env.VITE_SUPABASE_URL ||
   import.meta.env.VITE_PUBLIC_SUPABASE_URL ||
-  "https://omicqnxpmfbltqrkbfid.supabase.co";
+  "";
 
 const rawAnon =
   import.meta.env.VITE_SUPABASE_ANON ||
   import.meta.env.VITE_SUPABASE_ANON_KEY ||
   import.meta.env.VITE_SUPABASE_KEY ||
   import.meta.env.VITE_PUBLIC_SUPABASE_ANON_KEY ||
-  "sb_publishable_QXTksvwnKp5s3eaXeGCcIw_3-oLJSif";
+  "";
 
 const SUPABASE_URL = typeof rawUrl === "string" ? rawUrl.trim().replace(/['";]+$/g, "").replace(/^['"]+/g, "") : "";
 const SUPABASE_ANON = typeof rawAnon === "string" ? rawAnon.trim().replace(/['";]+$/g, "").replace(/^['"]+/g, "") : "";
@@ -68,10 +68,8 @@ export async function verifyAdminCredentials(usernameOrEmail, password) {
 
   // 2. Local / fallback admin username check
   if (identifier.toLowerCase() === ADMIN_USERNAME) {
-    const envPass = import.meta.env.VITE_ADMIN_PASSWORD;
-    if (envPass && password === envPass) {
-      return { success: true, authMode: "local" };
-    }
+    // NOTE: VITE_ADMIN_PASSWORD removed — env vars prefixed with VITE_ are
+    // embedded in the public JS bundle and expose the password to anyone.
 
     const hash = await sha256Hex(password);
     if (hash === ADMIN_PASSWORD_HASH) {

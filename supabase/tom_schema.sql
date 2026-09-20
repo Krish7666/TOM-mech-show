@@ -65,8 +65,8 @@ create index if not exists tom_mechanism_media_mechanism_idx
   on public.tom_mechanism_media (mechanism_id);
 
 -- 3. GRANT PERMISSIONS TO POSTGREST (CRITICAL: FIXES SCHEMA CACHE ERROR)
-grant all on table public.tom_mechanisms to anon, authenticated, service_role;
-grant all on table public.tom_mechanism_media to anon, authenticated, service_role;
+grant select, insert on table public.tom_mechanisms to anon; grant all on table public.tom_mechanisms to authenticated, service_role;
+grant select, insert on table public.tom_mechanism_media to anon; grant all on table public.tom_mechanism_media to authenticated, service_role;
 
 -- 4. ROW LEVEL SECURITY (SAFE DROP & RECREATE POLICIES)
 alter table public.tom_mechanisms      enable row level security;
@@ -85,12 +85,12 @@ create policy "tom_mechanisms_insert_public" on public.tom_mechanisms
 -- Authenticated admins can update any mechanism (including status and admin_feedback)
 drop policy if exists "tom_mechanisms_update_public" on public.tom_mechanisms;
 create policy "tom_mechanisms_update_public" on public.tom_mechanisms
-  for update using (auth.role() = 'authenticated' or true); -- Allow transition during setup
+  for update using (auth.role() = 'authenticated');
 
 -- Authenticated admins can delete mechanisms
 drop policy if exists "tom_mechanisms_delete_public" on public.tom_mechanisms;
 create policy "tom_mechanisms_delete_public" on public.tom_mechanisms
-  for delete using (auth.role() = 'authenticated' or true);
+  for delete using (auth.role() = 'authenticated');
 
 drop policy if exists "tom_media_select_all" on public.tom_mechanism_media;
 create policy "tom_media_select_all" on public.tom_mechanism_media
@@ -98,11 +98,11 @@ create policy "tom_media_select_all" on public.tom_mechanism_media
 
 drop policy if exists "tom_media_insert_public" on public.tom_mechanism_media;
 create policy "tom_media_insert_public" on public.tom_mechanism_media
-  for insert with check (true);
+  for insert with check (auth.role() = 'authenticated' or true);
 
 drop policy if exists "tom_media_delete_public" on public.tom_mechanism_media;
 create policy "tom_media_delete_public" on public.tom_mechanism_media
-  for delete using (true);
+  for delete using (auth.role() = 'authenticated');
 
 -- 5. STORAGE BUCKET (tom-media)
 insert into storage.buckets (id, name, public)
@@ -119,7 +119,7 @@ create policy "tom_media_bucket_insert" on storage.objects
 
 drop policy if exists "tom_media_bucket_delete" on storage.objects;
 create policy "tom_media_bucket_delete" on storage.objects
-  for delete using (bucket_id = 'tom-media');
+  for delete using (bucket_id = 'tom-media' and auth.role() = 'authenticated');
 
 -- 6. FORCE POSTGREST SCHEMA CACHE RELOAD IMMEDIATELY
 notify pgrst, 'reload schema';

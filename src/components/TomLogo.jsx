@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useId, useState } from "react";
 
 /**
  * Theory of Machines (TOM) Brand Logo Component.
@@ -10,6 +10,11 @@ import { useState } from "react";
  */
 export default function TomLogo({ size = 38, className = "", useImage = false }) {
   const [imgError, setImgError] = useState(false);
+  const uid = useId();
+  const glowId = `tomCyanGlow${uid}`;
+  const linkGradId = `tomLinkGrad${uid}`;
+  const gearGradId = `tomGearGrad${uid}`;
+  const pinGradId = `tomPinGrad${uid}`;
 
   if (useImage && !imgError) {
     return (
@@ -42,9 +47,10 @@ export default function TomLogo({ size = 38, className = "", useImage = false })
       aria-label="Theory of Machines Logo"
       role="img"
     >
+      <title>Theory of Machines Logo</title>
       <defs>
         {/* Glow Filters */}
-        <filter id="tomCyanGlow" x="-25%" y="-25%" width="150%" height="150%">
+        <filter id={glowId} x="-25%" y="-25%" width="150%" height="150%">
           <feGaussianBlur stdDeviation="2" result="blur" />
           <feMerge>
             <feMergeNode in="blur" />
@@ -52,18 +58,18 @@ export default function TomLogo({ size = 38, className = "", useImage = false })
           </feMerge>
         </filter>
 
-        <linearGradient id="tomLinkGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+        <linearGradient id={linkGradId} x1="0%" y1="0%" x2="100%" y2="100%">
           <stop offset="0%" stopColor="#38bdf8" />
           <stop offset="50%" stopColor="#818cf8" />
           <stop offset="100%" stopColor="#38bdf8" />
         </linearGradient>
 
-        <linearGradient id="tomGearGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+        <linearGradient id={gearGradId} x1="0%" y1="0%" x2="100%" y2="100%">
           <stop offset="0%" stopColor="#0ea5e9" />
           <stop offset="100%" stopColor="#6366f1" />
         </linearGradient>
 
-        <radialGradient id="tomPinGrad" cx="35%" cy="35%" r="65%">
+        <radialGradient id={pinGradId} cx="35%" cy="35%" r="65%">
           <stop offset="0%" stopColor="#ffffff" />
           <stop offset="50%" stopColor="#38bdf8" />
           <stop offset="100%" stopColor="#0284c7" />
@@ -78,13 +84,13 @@ export default function TomLogo({ size = 38, className = "", useImage = false })
       </g>
 
       {/* Central Interlocking Spur Gear */}
-      <g transform="translate(50, 50)" filter="url(#tomCyanGlow)">
+      <g transform="translate(50, 50)" filter={`url(#${glowId})`}>
         {/* Gear Teeth (12 teeth) */}
         <path
           d="
             M -5,-26 L 5,-26 L 7,-20 L 13,-20 L 18,-24 L 24,-18 L 20,-13 L 20,-7 L 26,-5 L 26,5 L 20,7 L 20,13 L 24,18 L 18,24 L 13,20 L 7,20 L 5,26 L -5,26 L -7,20 L -13,20 L -18,24 L -24,18 L -20,13 L -20,7 L -26,5 L -26,-5 L -20,-7 L -20,-13 L -24,-18 L -18,-24 L -13,-20 L -7,-20 Z
           "
-          fill="url(#tomGearGrad)"
+          fill={`url(#${gearGradId})`}
           stroke="#38bdf8"
           strokeWidth="1.2"
           opacity="0.9"
@@ -97,12 +103,12 @@ export default function TomLogo({ size = 38, className = "", useImage = false })
       </g>
 
       {/* 4-Bar Kinematic Linkage Diamond Frame */}
-      <g filter="url(#tomCyanGlow)">
+      <g filter={`url(#${glowId})`}>
         {/* Outer Linkage Bars */}
         <polygon
           points="50,14 86,50 50,86 14,50"
           fill="none"
-          stroke="url(#tomLinkGrad)"
+          stroke={`url(#${linkGradId})`}
           strokeWidth="3.2"
           strokeLinejoin="round"
         />
@@ -120,20 +126,20 @@ export default function TomLogo({ size = 38, className = "", useImage = false })
         {/* 4 Kinematic Pivot Joints (Bearings) */}
         {/* Top Joint */}
         <circle cx="50" cy="14" r="6" fill="#0b0f19" stroke="#38bdf8" strokeWidth="2" />
-        <circle cx="50" cy="14" r="3" fill="url(#tomPinGrad)" />
+        <circle cx="50" cy="14" r="3" fill={`url(#${pinGradId})`} />
 
         {/* Right Joint */}
         <circle cx="86" cy="50" r="6" fill="#0b0f19" stroke="#38bdf8" strokeWidth="2" />
-        <circle cx="86" cy="50" r="3" fill="url(#tomPinGrad)" />
+        <circle cx="86" cy="50" r="3" fill={`url(#${pinGradId})`} />
 
         {/* Bottom Joint */}
         <circle cx="50" cy="86" r="6" fill="#0b0f19" stroke="#38bdf8" strokeWidth="2" />
-        <circle cx="50" cy="86" r="3" fill="url(#tomPinGrad)" />
+        <circle cx="50" cy="86" r="3" fill={`url(#${pinGradId})`} />
 
         {/* Left Joint */}
         <circle cx="14" cy="50" r="6" fill="#0b0f19" stroke="#38bdf8" strokeWidth="2" />
-        <circle cx="14" cy="50" r="3" fill="url(#tomPinGrad)" />
+        <circle cx="14" cy="50" r="3" fill={`url(#${pinGradId})`} />
       </g>
     </svg>
-  );
+    );
 }

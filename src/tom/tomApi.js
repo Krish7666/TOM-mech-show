@@ -22,9 +22,10 @@ export function validateUploadFile(file) {
   if (file.size > MAX_SIZE_MB * 1024 * 1024) {
     return { valid: false, error: `File "${file.name}" exceeds the ${MAX_SIZE_MB}MB size limit.` };
   }
-  const dangerousExt = /\.(exe|bat|cmd|sh|vbs|msi|dll|scr|com)$/i;
-  if (dangerousExt.test(file.name)) {
-    return { valid: false, error: `Executable or script files ("${file.name}") are not permitted.` };
+  // Whitelist of safe file extensions
+  const allowedExt = /\.(png|jpg|jpeg|gif|webp|bmp|ico|pdf|doc|docx|ppt|pptx|xls|xlsx|mp4|webm|mov|avi|mkv|mp3|wav|ogg|zip|rar|7z|gz|tar|stl|obj|step|stp|iges|igs|dwg|dxf|html|htm|json|txt|csv|md)$/i;
+  if (!allowedExt.test(file.name)) {
+    return { valid: false, error: `File type "${file.name.split('.').pop()}" is not permitted. Only images, documents, videos, CAD files, and archives are allowed.` };
   }
   return { valid: true };
 }
