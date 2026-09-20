@@ -293,20 +293,21 @@ export default function App() {
           </span>
         </button>
 
-        <div className="site-header__actions">
-          <button
-            type="button"
-            className={`nav-menu-toggle${isNavMenuOpen ? " nav-menu-toggle--active" : ""}`}
-            onClick={() => setIsNavMenuOpen((prev) => !prev)}
-            aria-label={isNavMenuOpen ? "Close navigation menu" : "Open navigation menu"}
-            aria-expanded={isNavMenuOpen}
-          >
-            <span className="hamburger-icon" aria-hidden="true">
-              <span className="hamburger-bar" />
-              <span className="hamburger-bar" />
-              <span className="hamburger-bar" />
-            </span>
-            <span className="nav-menu-toggle__label">Menu</span>
+        <div className="site-header__actions" style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
+          <button type="button" onClick={() => navigateTo('home')} style={{ background: 'transparent', border: 'none', color: page === 'home' ? '#38bdf8' : '#e2e8f0', cursor: 'pointer', fontWeight: 500, fontSize: '15px' }}>
+            🏠 Home
+          </button>
+          <button type="button" onClick={() => navigateTo('vlab')} style={{ background: 'transparent', border: 'none', color: page === 'vlab' ? '#38bdf8' : '#e2e8f0', cursor: 'pointer', fontWeight: 500, fontSize: '15px' }}>
+            🔬 Four-Bar Virtual Lab
+          </button>
+          <button type="button" onClick={() => navigateTo('repository')} style={{ background: 'transparent', border: 'none', color: page === 'repository' ? '#38bdf8' : '#e2e8f0', cursor: 'pointer', fontWeight: 500, fontSize: '15px' }}>
+            📚 Cloud Repository
+          </button>
+          <button type="button" onClick={() => navigateTo('submit')} style={{ background: 'transparent', border: 'none', color: page === 'submit' ? '#38bdf8' : '#e2e8f0', cursor: 'pointer', fontWeight: 500, fontSize: '15px' }}>
+            ➕ Add Mechanism
+          </button>
+          <button type="button" onClick={() => navigateTo(isAdminLoggedIn ? 'admin' : 'login')} style={{ background: 'transparent', border: 'none', color: '#fbbf24', cursor: 'pointer', fontWeight: 600, fontSize: '15px' }}>
+            ⚡ {isAdminLoggedIn ? 'Admin Dashboard' : 'Admin Access'}
           </button>
         </div>
       </header>
@@ -413,12 +414,14 @@ export default function App() {
         {/* HOME */}
         {page === "home" && (
           <>
-            <section className="hero-panel" style={{ display: "flex", flexDirection: "column", alignItems: "center", position: "relative", minHeight: "80vh", justifyContent: "center" }}>
-              <div style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, zIndex: 0, opacity: 1, pointerEvents: "auto" }}>
-                <Suspense fallback={<div style={{ height: "100%", display: "flex", alignItems: "center", justifyContent: "center", color: "#38bdf8" }}>Loading Interactive Background...</div>}>
-                  <TomLogo3D />
-                </Suspense>
-              </div>
+            {/* FIXED 3D BACKGROUND */}
+            <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, zIndex: -1, opacity: 1, pointerEvents: "auto" }}>
+              <Suspense fallback={<div style={{ height: "100%", display: "flex", alignItems: "center", justifyContent: "center", color: "#38bdf8" }}>Loading Interactive Background...</div>}>
+                <TomLogo3D />
+              </Suspense>
+            </div>
+
+            <section className="hero-panel" style={{ display: "flex", flexDirection: "column", alignItems: "center", position: "relative", minHeight: "80vh", justifyContent: "center", background: "transparent", border: "none", boxShadow: "none" }}>
               
               <div className="hero-copy-block" style={{ zIndex: 2, position: "relative", marginTop: 0, background: "rgba(3, 7, 18, 0.3)", padding: "2rem", borderRadius: "24px", backdropFilter: "blur(4px)", border: "1px solid rgba(255, 255, 255, 0.05)" }}>
                 <div className="hero-badge" style={{ margin: "0 auto 1.5rem auto" }}>
