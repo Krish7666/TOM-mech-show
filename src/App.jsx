@@ -293,20 +293,20 @@ export default function App() {
           </span>
         </button>
 
-        <div className="site-header__actions" style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
-          <button type="button" onClick={() => navigateTo('home')} style={{ background: 'transparent', border: 'none', color: page === 'home' ? '#38bdf8' : '#e2e8f0', cursor: 'pointer', fontWeight: 500, fontSize: '15px' }}>
+        <div className="site-header__actions" style={{ display: 'flex', gap: '20px', alignItems: 'center', overflowX: 'auto', maxWidth: '100vw', paddingBottom: '4px' }}>
+          <button type="button" onClick={() => navigateTo('home')} style={{ background: 'transparent', border: 'none', color: page === 'home' ? '#38bdf8' : '#e2e8f0', cursor: 'pointer', fontWeight: 500, fontSize: '15px', whiteSpace: 'nowrap' }}>
             🏠 Home
           </button>
-          <button type="button" onClick={() => navigateTo('vlab')} style={{ background: 'transparent', border: 'none', color: page === 'vlab' ? '#38bdf8' : '#e2e8f0', cursor: 'pointer', fontWeight: 500, fontSize: '15px' }}>
+          <button type="button" onClick={() => navigateTo('vlab')} style={{ background: 'transparent', border: 'none', color: page === 'vlab' ? '#38bdf8' : '#e2e8f0', cursor: 'pointer', fontWeight: 500, fontSize: '15px', whiteSpace: 'nowrap' }}>
             🔬 Four-Bar Virtual Lab
           </button>
-          <button type="button" onClick={() => navigateTo('repository')} style={{ background: 'transparent', border: 'none', color: page === 'repository' ? '#38bdf8' : '#e2e8f0', cursor: 'pointer', fontWeight: 500, fontSize: '15px' }}>
+          <button type="button" onClick={() => navigateTo('repository')} style={{ background: 'transparent', border: 'none', color: page === 'repository' ? '#38bdf8' : '#e2e8f0', cursor: 'pointer', fontWeight: 500, fontSize: '15px', whiteSpace: 'nowrap' }}>
             📚 Cloud Repository
           </button>
-          <button type="button" onClick={() => navigateTo('submit')} style={{ background: 'transparent', border: 'none', color: page === 'submit' ? '#38bdf8' : '#e2e8f0', cursor: 'pointer', fontWeight: 500, fontSize: '15px' }}>
+          <button type="button" onClick={() => navigateTo('submit')} style={{ background: 'transparent', border: 'none', color: page === 'submit' ? '#38bdf8' : '#e2e8f0', cursor: 'pointer', fontWeight: 500, fontSize: '15px', whiteSpace: 'nowrap' }}>
             ➕ Add Mechanism
           </button>
-          <button type="button" onClick={() => navigateTo(isAdminLoggedIn ? 'admin' : 'login')} style={{ background: 'transparent', border: 'none', color: '#fbbf24', cursor: 'pointer', fontWeight: 600, fontSize: '15px' }}>
+          <button type="button" onClick={() => navigateTo(isAdminLoggedIn ? 'admin' : 'login')} style={{ background: 'transparent', border: 'none', color: '#fbbf24', cursor: 'pointer', fontWeight: 600, fontSize: '15px', whiteSpace: 'nowrap' }}>
             ⚡ {isAdminLoggedIn ? 'Admin Dashboard' : 'Admin Access'}
           </button>
         </div>
@@ -421,10 +421,10 @@ export default function App() {
               </Suspense>
             </div>
 
-            <section className="hero-panel" style={{ display: "flex", flexDirection: "column", alignItems: "center", position: "relative", minHeight: "80vh", justifyContent: "center", background: "transparent", border: "none", boxShadow: "none" }}>
+            <section className="hero-panel" style={{ display: "flex", flexDirection: "column", alignItems: "center", position: "relative", minHeight: "80vh", justifyContent: "center", background: "transparent", border: "none", boxShadow: "none", maxWidth: "100%" }}>
               
-              <div className="hero-copy-block" style={{ zIndex: 2, position: "relative", marginTop: 0, background: "rgba(3, 7, 18, 0.3)", padding: "2rem", borderRadius: "24px", backdropFilter: "blur(4px)", border: "1px solid rgba(255, 255, 255, 0.05)" }}>
-                <div className="hero-badge" style={{ margin: "0 auto 1.5rem auto" }}>
+              <div className="hero-copy-block" style={{ zIndex: 2, position: "relative", marginTop: 0, background: "rgba(3, 7, 18, 0.7)", padding: "2.5rem", borderRadius: "28px", backdropFilter: "blur(16px)", border: "1px solid rgba(255, 255, 255, 0.1)", maxWidth: "100%", width: "100%", overflow: "hidden", boxShadow: "0 12px 40px rgba(0,0,0,0.5)" }}>
+                <div className="hero-badge" style={{ margin: "0 auto 1.5rem auto", background: "rgba(0,0,0,0.4)" }}>
                   <span className="hero-badge__dot" />
                   TE Mech · 2025-28 Batch
                 </div>
