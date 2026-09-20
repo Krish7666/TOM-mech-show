@@ -293,26 +293,7 @@ export default function App() {
           </span>
         </button>
 
-        <div className="site-header__actions" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          {/* Horizontal Desktop Links (scrollable on smaller screens if they don't fit) */}
-          <nav className="desktop-nav" style={{ display: 'flex', gap: '20px', alignItems: 'center', overflowX: 'auto', paddingBottom: '4px' }}>
-            <button type="button" onClick={() => navigateTo('home')} style={{ background: 'transparent', border: 'none', color: page === 'home' ? '#38bdf8' : '#e2e8f0', cursor: 'pointer', fontWeight: 500, fontSize: '15px', whiteSpace: 'nowrap' }}>
-              🏠 Home
-            </button>
-            <button type="button" onClick={() => navigateTo('vlab')} style={{ background: 'transparent', border: 'none', color: page === 'vlab' ? '#38bdf8' : '#e2e8f0', cursor: 'pointer', fontWeight: 500, fontSize: '15px', whiteSpace: 'nowrap' }}>
-              🔬 Four-Bar Virtual Lab
-            </button>
-            <button type="button" onClick={() => navigateTo('repository')} style={{ background: 'transparent', border: 'none', color: page === 'repository' ? '#38bdf8' : '#e2e8f0', cursor: 'pointer', fontWeight: 500, fontSize: '15px', whiteSpace: 'nowrap' }}>
-              📚 Cloud Repository
-            </button>
-            <button type="button" onClick={() => navigateTo('submit')} style={{ background: 'transparent', border: 'none', color: page === 'submit' ? '#38bdf8' : '#e2e8f0', cursor: 'pointer', fontWeight: 500, fontSize: '15px', whiteSpace: 'nowrap' }}>
-              ➕ Add Mechanism
-            </button>
-            <button type="button" onClick={() => navigateTo(isAdminLoggedIn ? 'admin' : 'login')} style={{ background: 'transparent', border: 'none', color: '#fbbf24', cursor: 'pointer', fontWeight: 600, fontSize: '15px', whiteSpace: 'nowrap' }}>
-              ⚡ {isAdminLoggedIn ? 'Admin Dashboard' : 'Admin Access'}
-            </button>
-          </nav>
-
+        <div className="site-header__actions">
           {/* Hamburger Menu Toggle */}
           <button
             type="button"
@@ -320,7 +301,6 @@ export default function App() {
             onClick={() => setIsNavMenuOpen((prev) => !prev)}
             aria-label={isNavMenuOpen ? "Close navigation menu" : "Open navigation menu"}
             aria-expanded={isNavMenuOpen}
-            style={{ marginLeft: '10px' }}
           >
             <span className="hamburger-icon" aria-hidden="true">
               <span className="hamburger-bar" />
