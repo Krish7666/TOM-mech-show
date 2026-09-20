@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { Environment, Float } from '@react-three/drei';
 
@@ -80,9 +80,18 @@ function MechanicalLogo() {
 }
 
 export default function TomLogo3D() {
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
   return (
     <div style={{ width: '100%', height: '100%', cursor: 'grab', userSelect: 'none', position: 'absolute', top: 0, left: 0 }} className="tom-logo-3d-container">
-      <Canvas camera={{ position: [0, 0, 7], fov: 45 }}>
+      <Canvas dpr={[1, 1.5]} camera={{ position: [0, 0, isMobile ? 12 : 7], fov: 45 }}>
         <ambientLight intensity={1.2} />
         <directionalLight position={[5, 10, 5]} intensity={2.5} color="#38bdf8" />
         <directionalLight position={[-5, -10, -5]} intensity={1.5} color="#818cf8" />

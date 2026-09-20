@@ -415,7 +415,7 @@ export default function App() {
         {page === "home" && (
           <>
             {/* FIXED 3D BACKGROUND */}
-            <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, zIndex: -1, opacity: 1, pointerEvents: "auto" }}>
+            <div className="hero-3d-bg" style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, zIndex: -1, opacity: 1 }}>
               <Suspense fallback={<div style={{ height: "100%", display: "flex", alignItems: "center", justifyContent: "center", color: "#38bdf8" }}>Loading Interactive Background...</div>}>
                 <TomLogo3D />
               </Suspense>

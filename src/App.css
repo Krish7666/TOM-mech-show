@@ -3713,3 +3713,13 @@ img {
   cursor: not-allowed;
   transform: none;
 }
+
+.hero-3d-bg {
+  pointer-events: auto;
+}
+
+@media (max-width: 768px) {
+  .hero-3d-bg {
+    pointer-events: none;
+  }
+}
