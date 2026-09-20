@@ -293,21 +293,20 @@ export default function App() {
           </span>
         </button>
 
-        <div className="site-header__actions" style={{ display: 'flex', gap: '20px', alignItems: 'center', overflowX: 'auto', maxWidth: '100vw', paddingBottom: '4px' }}>
-          <button type="button" onClick={() => navigateTo('home')} style={{ background: 'transparent', border: 'none', color: page === 'home' ? '#38bdf8' : '#e2e8f0', cursor: 'pointer', fontWeight: 500, fontSize: '15px', whiteSpace: 'nowrap' }}>
-            🏠 Home
-          </button>
-          <button type="button" onClick={() => navigateTo('vlab')} style={{ background: 'transparent', border: 'none', color: page === 'vlab' ? '#38bdf8' : '#e2e8f0', cursor: 'pointer', fontWeight: 500, fontSize: '15px', whiteSpace: 'nowrap' }}>
-            🔬 Four-Bar Virtual Lab
-          </button>
-          <button type="button" onClick={() => navigateTo('repository')} style={{ background: 'transparent', border: 'none', color: page === 'repository' ? '#38bdf8' : '#e2e8f0', cursor: 'pointer', fontWeight: 500, fontSize: '15px', whiteSpace: 'nowrap' }}>
-            📚 Cloud Repository
-          </button>
-          <button type="button" onClick={() => navigateTo('submit')} style={{ background: 'transparent', border: 'none', color: page === 'submit' ? '#38bdf8' : '#e2e8f0', cursor: 'pointer', fontWeight: 500, fontSize: '15px', whiteSpace: 'nowrap' }}>
-            ➕ Add Mechanism
-          </button>
-          <button type="button" onClick={() => navigateTo(isAdminLoggedIn ? 'admin' : 'login')} style={{ background: 'transparent', border: 'none', color: '#fbbf24', cursor: 'pointer', fontWeight: 600, fontSize: '15px', whiteSpace: 'nowrap' }}>
-            ⚡ {isAdminLoggedIn ? 'Admin Dashboard' : 'Admin Access'}
+        <div className="site-header__actions">
+          <button
+            type="button"
+            className={`nav-menu-toggle${isNavMenuOpen ? " nav-menu-toggle--active" : ""}`}
+            onClick={() => setIsNavMenuOpen((prev) => !prev)}
+            aria-label={isNavMenuOpen ? "Close navigation menu" : "Open navigation menu"}
+            aria-expanded={isNavMenuOpen}
+          >
+            <span className="hamburger-icon" aria-hidden="true">
+              <span className="hamburger-bar" />
+              <span className="hamburger-bar" />
+              <span className="hamburger-bar" />
+            </span>
+            <span className="nav-menu-toggle__label">Menu</span>
           </button>
         </div>
       </header>
