@@ -413,13 +413,14 @@ export default function App() {
         {/* HOME */}
         {page === "home" && (
           <>
-            <section className="hero-panel" style={{ display: "flex", flexDirection: "column", alignItems: "center", position: "relative" }}>
-              <div style={{ width: "100%", maxWidth: "600px", margin: "0 auto -40px auto", position: "relative", zIndex: 1 }}>
-                <Suspense fallback={<div style={{ height: "350px", display: "flex", alignItems: "center", justifyContent: "center", color: "#38bdf8" }}>Loading 3D Logo...</div>}>
+            <section className="hero-panel" style={{ display: "flex", flexDirection: "column", alignItems: "center", position: "relative", minHeight: "80vh", justifyContent: "center" }}>
+              <div style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, zIndex: 0, opacity: 0.8, pointerEvents: "auto" }}>
+                <Suspense fallback={<div style={{ height: "100%", display: "flex", alignItems: "center", justifyContent: "center", color: "#38bdf8" }}>Loading Interactive Background...</div>}>
                   <TomLogo3D />
                 </Suspense>
               </div>
-              <div className="hero-copy-block" style={{ zIndex: 2, position: "relative", marginTop: 0 }}>
+              
+              <div className="hero-copy-block" style={{ zIndex: 2, position: "relative", marginTop: 0, background: "rgba(3, 7, 18, 0.6)", padding: "2rem", borderRadius: "24px", backdropFilter: "blur(12px)", border: "1px solid rgba(255, 255, 255, 0.05)" }}>
                 <div className="hero-badge" style={{ margin: "0 auto 1.5rem auto" }}>
                   <span className="hero-badge__dot" />
                   TE Mech · 2025-28 Batch
