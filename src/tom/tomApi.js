@@ -463,30 +463,44 @@ export async function submitMechanism(formValues, filesByType, { approved = fals
 
       if (!dbError && remoteMech) {
         let remoteCover = null;
+        let remoteBg = null;
         for (const [type, files] of Object.entries(filesByType || {})) {
           const list = files ? Array.from(files) : [];
           for (const file of list) {
             const { error: uploadError, path } = await uploadMechanismFile(remoteMech.id, type, file);
             if (uploadError) {
-              uploadErrors.push({ type, name: file.name, message: uploadError.message });
+              uploadErrors.push(uploadError);
               continue;
             }
             const url = publicMediaUrl(path);
             if (!remoteCover && (type === "image" || type === "drawing")) remoteCover = url;
+            if (type === "background_image") remoteBg = url;
+            
             if (/\.(html|htm)$/i.test(file.name)) {
               await supabase.from(MECHANISMS_TABLE).update({ html_animation_url: url }).eq("id", remoteMech.id);
             }
-            await supabase.from(MEDIA_TABLE).insert([{
+            if (/\.(stl|gltf|glb|obj)$/i.test(file.name)) {
+              await supabase.from(MECHANISMS_TABLE).update({ cad_model_url: url }).eq("id", remoteMech.id);
+            }
+            if (type === "document") {
+              await supabase.from(MECHANISMS_TABLE).update({ report_url: url }).eq("id", remoteMech.id);
+            }
+
+            await supabase.from("tom_mechanism_media").insert([{
               mechanism_id: remoteMech.id,
-              file_type: type === "animation_html" ? "animation" : type,
+              file_type: (type === "background_image") ? "image" : (type === "animation_html" ? "animation" : type),
               file_name: file.name,
               file_path: path,
-              file_url: url,
+              file_url: url
             }]);
           }
         }
-        if (remoteCover) {
-          await supabase.from(MECHANISMS_TABLE).update({ cover_image: remoteCover }).eq("id", remoteMech.id);
+        
+        const updates = {};
+        if (remoteCover) updates.cover_image = remoteCover;
+        if (remoteBg) updates.background_image = remoteBg;
+        if (Object.keys(updates).length > 0) {
+          await supabase.from(MECHANISMS_TABLE).update(updates).eq("id", remoteMech.id);
         }
       }
     } catch (err) {

@@ -18,6 +18,7 @@ export default function MechanismForm({ onCancel, onSubmit, submitting, formErro
   const [form, setForm] = useState(EMPTY_MECHANISM_FORM);
   const [files, setFiles] = useState({});
   const [imagePreview, setImagePreview] = useState("");
+  const [bgImagePreview, setBgImagePreview] = useState("");
   const [imageUrlInput, setImageUrlInput] = useState("");
   const [bgImageUrl, setBgImageUrl] = useState("");
   const [localError, setLocalError] = useState("");
@@ -67,19 +68,20 @@ export default function MechanismForm({ onCancel, onSubmit, submitting, formErro
     setLocalError("");
     setFiles((cur) => ({ ...cur, [slot]: fileList }));
 
-    if (slot === "image" && fileList && fileList[0]) {
+    if ((slot === "image" || slot === "background_image") && fileList && fileList[0]) {
       const file = fileList[0];
       const reader = new FileReader();
       reader.onload = (e) => {
         const rawData = e.target.result;
         if (typeof window === "undefined" || !window.Image) {
-          setImagePreview(rawData);
+          if (slot === "image") setImagePreview(rawData);
+          else setBgImagePreview(rawData);
           return;
         }
         const img = new Image();
         img.onload = () => {
-          const maxWidth = 800;
-          const maxHeight = 600;
+          const maxWidth = slot === "image" ? 800 : 1920;
+          const maxHeight = slot === "image" ? 600 : 1080;
           let { width, height } = img;
           if (width > maxWidth) {
             height = Math.round((height * maxWidth) / width);
@@ -95,12 +97,18 @@ export default function MechanismForm({ onCancel, onSubmit, submitting, formErro
           const ctx = canvas.getContext("2d");
           if (ctx) {
             ctx.drawImage(img, 0, 0, width, height);
-            setImagePreview(canvas.toDataURL("image/jpeg", 0.85));
+            const compressed = canvas.toDataURL("image/jpeg", 0.85);
+            if (slot === "image") setImagePreview(compressed);
+            else setBgImagePreview(compressed);
           } else {
-            setImagePreview(rawData);
+            if (slot === "image") setImagePreview(rawData);
+            else setBgImagePreview(rawData);
           }
         };
-        img.onerror = () => setImagePreview(rawData);
+        img.onerror = () => {
+          if (slot === "image") setImagePreview(rawData);
+          else setBgImagePreview(rawData);
+        };
         img.src = rawData;
       };
       reader.readAsDataURL(file);
@@ -267,14 +275,14 @@ export default function MechanismForm({ onCancel, onSubmit, submitting, formErro
       </p>
 
       {/* Live Thumbnail Preview */}
-      {(imagePreview || bgImageUrl) && (
+      {(imagePreview || bgImageUrl || bgImagePreview) && (
         <div style={{
           display: "flex",
           gap: "16px",
           alignItems: "center",
           padding: "14px 18px",
-          background: bgImageUrl
-            ? `linear-gradient(rgba(12, 16, 26, 0.78), rgba(12, 16, 26, 0.94)), url(${bgImageUrl}) center/cover no-repeat`
+          background: (bgImagePreview || bgImageUrl)
+            ? `linear-gradient(rgba(12, 16, 26, 0.78), rgba(12, 16, 26, 0.94)), url(${bgImagePreview || bgImageUrl}) center/cover no-repeat`
             : "rgba(251, 191, 36, 0.08)",
           border: "1px solid rgba(251, 191, 36, 0.3)",
           borderRadius: "16px",
@@ -298,11 +306,11 @@ export default function MechanismForm({ onCancel, onSubmit, submitting, formErro
           )}
           <div style={{ flex: 1 }}>
             <strong style={{ display: "block", fontSize: "0.9rem", color: "#f8fafc", marginBottom: "4px" }}>
-              ✓ Thumbnail Ready {bgImageUrl && "+ Background Set"}
+              ✓ Thumbnail Ready {(bgImageUrl || bgImagePreview) && "+ Background Set"}
             </strong>
             <p style={{ margin: 0, fontSize: "0.82rem", color: "var(--muted)" }}>
               {imagePreview ? "Mechanism image is set." : "Card background is set."}
-              {bgImageUrl && " Custom background backdrop applied."}
+              {(bgImageUrl || bgImagePreview) && " Custom background backdrop applied."}
             </p>
           </div>
           <button
@@ -313,9 +321,11 @@ export default function MechanismForm({ onCancel, onSubmit, submitting, formErro
               setImagePreview("");
               setImageUrlInput("");
               setBgImageUrl("");
+              setBgImagePreview("");
               setFiles((cur) => {
                 const copy = { ...cur };
                 delete copy.image;
+                delete copy.background_image;
                 return copy;
               });
             }}
@@ -352,17 +362,30 @@ export default function MechanismForm({ onCancel, onSubmit, submitting, formErro
           </span>
         </label>
 
-        <label className="field field--wide" style={{ gridColumn: "1 / -1" }}>
-          <span className="field__label">Thumbnail Background Image Link / URL (Optional)</span>
+        <label className="field">
+          <span className="field__label">Upload Background Image (Optional)</span>
+          <input
+            className="field__control"
+            type="file"
+            accept="image/*"
+            onChange={(e) => handleFileChange("background_image", e.target.files)}
+          />
+          <span className="field__hint" style={{ fontSize: "0.74rem", color: "var(--muted)" }}>
+            Select a local image to use as the backdrop for your card.
+          </span>
+        </label>
+
+        <label className="field">
+          <span className="field__label">Or Paste Background Link (Optional)</span>
           <input
             className="field__control"
             name="background_image"
-            placeholder="https://... direct image link for thumbnail background backdrop"
+            placeholder="https://... direct image link"
             value={bgImageUrl}
             onChange={(e) => setBgImageUrl(e.target.value)}
           />
           <span className="field__hint" style={{ fontSize: "0.74rem", color: "var(--muted)" }}>
-            Paste an image link to use as the background backdrop for your mechanism's card in the showcase.
+            Paste an image link to use as the background backdrop.
           </span>
         </label>
       </div>
