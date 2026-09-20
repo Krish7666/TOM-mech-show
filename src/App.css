@@ -2592,6 +2592,12 @@ img {
 }
 
 @media (max-width: 900px) {
+  .desktop-nav {
+    display: none !important;
+  }
+}
+
+@media (max-width: 900px) {
   .site-header {
     flex-wrap: wrap;
     justify-content: center;
