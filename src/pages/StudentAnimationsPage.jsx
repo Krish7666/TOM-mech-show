@@ -285,11 +285,11 @@ export default function StudentAnimationsPage({ onNavigate, initialMechanismId }
                 }}
               >
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <span style={{ fontSize: "1.3rem" }}>🔬</span>
+                  <span style={{ fontSize: "1.3rem" }}>🌀</span>
                   <div>
                     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                       <strong style={{ color: "#f8fafc", fontSize: "0.98rem" }}>
-                        {activeMechanism.name}
+                        Student Custom Animation
                       </strong>
                       <span
                         style={{
@@ -303,11 +303,11 @@ export default function StudentAnimationsPage({ onNavigate, initialMechanismId }
                           fontFamily: "var(--font-mono, monospace)",
                         }}
                       >
-                        {htmlUrl ? "STUDENT HTML VIRTUAL LAB" : "CANVAS SIMULATOR"}
+                        {htmlUrl ? "HTML VIRTUAL LAB" : "CANVAS SIMULATOR"}
                       </span>
                     </div>
                     <span style={{ fontSize: "0.76rem", color: "var(--muted, #94a3b8)" }}>
-                      Student Project by {activeMechanism.student_name || "Student"} · {activeMechanism.college || "NMIET Mechanical"}
+                      {activeMechanism.name} · Contributed by {activeMechanism.student_name || "Student"} ({activeMechanism.college || "NMIET Mechanical"})
                     </span>
                   </div>
                 </div>
@@ -395,12 +395,69 @@ export default function StudentAnimationsPage({ onNavigate, initialMechanismId }
               </div>
             </div>
 
-            {/* Right: Side-by-Side Grübler Mobility Calculator */}
-            <div style={{ minWidth: 320, maxWidth: "100%" }}>
+            {/* Right Column: Side-by-Side Grübler Mobility Calculator & Kinematic Animation */}
+            <div style={{ minWidth: 320, maxWidth: "100%", display: "flex", flexDirection: "column", gap: 20 }}>
               <DofCalculatorWidget
                 mechanism={activeMechanism}
                 title="Kinematic Mobility & DOF Analysis"
               />
+
+              {/* Kinematic Animation Motion Preview */}
+              <div
+                style={{
+                  borderRadius: 18,
+                  overflow: "hidden",
+                  border: "1px solid rgba(255, 255, 255, 0.12)",
+                  background: "rgba(10, 16, 28, 0.9)",
+                  boxShadow: "0 10px 30px rgba(0, 0, 0, 0.45)",
+                  display: "flex",
+                  flexDirection: "column",
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    padding: "12px 18px",
+                    background: "rgba(15, 23, 42, 0.9)",
+                    borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
+                    gap: 10,
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <span style={{ fontSize: "1.2rem" }}>⚙️</span>
+                    <div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <strong style={{ color: "#f8fafc", fontSize: "0.95rem" }}>
+                          Kinematic Animation
+                        </strong>
+                        <span
+                          style={{
+                            fontSize: "0.68rem",
+                            padding: "2px 8px",
+                            borderRadius: "999px",
+                            background: "rgba(168, 85, 247, 0.15)",
+                            color: "#c084fc",
+                            border: "1px solid rgba(168, 85, 247, 0.35)",
+                            fontWeight: 700,
+                            fontFamily: "var(--font-mono, monospace)",
+                          }}
+                        >
+                          MOTION MODEL
+                        </span>
+                      </div>
+                      <span style={{ fontSize: "0.74rem", color: "var(--muted, #94a3b8)" }}>
+                        Linkage motion &amp; joint path simulation
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ minHeight: "360px", flex: 1, position: "relative" }}>
+                  <MechanismPreview mechanism={activeMechanism} />
+                </div>
+              </div>
             </div>
           </div>
 

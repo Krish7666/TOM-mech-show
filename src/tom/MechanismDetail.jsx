@@ -439,30 +439,44 @@ export default function MechanismDetail({ id, isAdmin, onBack, onChanged }) {
   );
 }
 
-function HtmlVirtualLabViewer({ htmlUrl, mechanism, onReload, reloadKey }) {
+function StudentCustomAnimationViewer({ htmlUrl, mechanism, onReload, reloadKey }) {
   const containerRef = useRef(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
   useEffect(() => {
     function onFsChange() {
-      setIsFullscreen(Boolean(document.fullscreenElement));
+      setIsFullscreen(Boolean(document.fullscreenElement || document.webkitFullscreenElement));
     }
     document.addEventListener("fullscreenchange", onFsChange);
-    return () => document.removeEventListener("fullscreenchange", onFsChange);
+    document.addEventListener("webkitfullscreenchange", onFsChange);
+    return () => {
+      document.removeEventListener("fullscreenchange", onFsChange);
+      document.removeEventListener("webkitfullscreenchange", onFsChange);
+    };
   }, []);
 
   function handleToggleFullscreen() {
     if (!containerRef.current) return;
-    if (!document.fullscreenElement) {
+    if (!document.fullscreenElement && !document.webkitFullscreenElement) {
       if (containerRef.current.requestFullscreen) {
         containerRef.current.requestFullscreen();
+      } else if (containerRef.current.webkitRequestFullscreen) {
+        containerRef.current.webkitRequestFullscreen();
+      } else {
+        setIsFullscreen(true);
       }
     } else {
       if (document.exitFullscreen) {
         document.exitFullscreen();
+      } else if (document.webkitExitFullscreen) {
+        document.webkitExitFullscreen();
+      } else {
+        setIsFullscreen(false);
       }
     }
   }
+
+  const hasCustomHtml = Boolean(htmlUrl && isSafeUrl(htmlUrl));
 
   return (
     <div
@@ -477,10 +491,16 @@ function HtmlVirtualLabViewer({ htmlUrl, mechanism, onReload, reloadKey }) {
         flexDirection: "column",
         width: "100%",
         height: isFullscreen ? "100vh" : "100%",
-        minHeight: isFullscreen ? "100vh" : "580px",
+        minHeight: isFullscreen ? "100vh" : "440px",
+        position: isFullscreen ? "fixed" : "relative",
+        top: isFullscreen ? 0 : undefined,
+        left: isFullscreen ? 0 : undefined,
+        right: isFullscreen ? 0 : undefined,
+        bottom: isFullscreen ? 0 : undefined,
+        zIndex: isFullscreen ? 99999 : undefined,
       }}
     >
-      {/* Virtual Lab Header Bar */}
+      {/* Student Custom Animation Header Bar */}
       <div
         style={{
           display: "flex",
@@ -494,57 +514,61 @@ function HtmlVirtualLabViewer({ htmlUrl, mechanism, onReload, reloadKey }) {
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <span style={{ fontSize: "1.3rem" }}>🔬</span>
+          <span style={{ fontSize: "1.3rem" }}>🌀</span>
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <strong style={{ color: "#f8fafc", fontSize: "0.98rem" }}>
-                Interactive Virtual Lab Simulation
+              <strong style={{ color: "#f8fafc", fontSize: "0.96rem" }}>
+                Student Custom Animation
               </strong>
               <span
                 style={{
                   fontSize: "0.68rem",
                   padding: "2px 8px",
                   borderRadius: "999px",
-                  background: "rgba(56, 189, 248, 0.15)",
-                  color: "#38bdf8",
-                  border: "1px solid rgba(56, 189, 248, 0.35)",
+                  background: hasCustomHtml ? "rgba(56, 189, 248, 0.15)" : "rgba(148, 163, 184, 0.15)",
+                  color: hasCustomHtml ? "#38bdf8" : "#94a3b8",
+                  border: `1px solid ${hasCustomHtml ? "rgba(56, 189, 248, 0.35)" : "rgba(148, 163, 184, 0.25)"}`,
                   fontWeight: 700,
                   fontFamily: "var(--font-mono, monospace)",
                 }}
               >
-                HTML VIRTUAL LAB
+                {hasCustomHtml ? "HTML VIRTUAL LAB" : "AWAITING FILE"}
               </span>
             </div>
-            <span style={{ fontSize: "0.75rem", color: "var(--muted, #94a3b8)" }}>
-              Student Simulation & Kinematic Model · {mechanism?.name || "Mechanism"}
+            <span style={{ fontSize: "0.74rem", color: "var(--muted, #94a3b8)" }}>
+              {mechanism?.student_name ? `Contributed by ${mechanism.student_name}` : "Interactive Student Model"} · {mechanism?.name || "Mechanism"}
             </span>
           </div>
         </div>
 
         <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-          <button
-            type="button"
-            className="secondary-btn secondary-btn--small"
-            style={{ padding: "5px 12px", fontSize: "0.76rem" }}
-            onClick={onReload}
-            title="Reload interactive simulation"
-          >
-            🔄 Reload Lab
-          </button>
-          <button
-            type="button"
-            className="secondary-btn secondary-btn--small"
-            style={{
-              padding: "5px 12px",
-              fontSize: "0.76rem",
-              borderColor: "rgba(56, 189, 248, 0.4)",
-              color: "#38bdf8",
-            }}
-            onClick={handleToggleFullscreen}
-            title="Toggle full screen laboratory view"
-          >
-            {isFullscreen ? "⤓ Exit Fullscreen" : "⛶ Fullscreen Lab"}
-          </button>
+          {hasCustomHtml && (
+            <button
+              type="button"
+              className="secondary-btn secondary-btn--small"
+              style={{ padding: "5px 12px", fontSize: "0.76rem" }}
+              onClick={onReload}
+              title="Reload interactive simulation"
+            >
+              🔄 Reload
+            </button>
+          )}
+          {hasCustomHtml && (
+            <button
+              type="button"
+              className="secondary-btn secondary-btn--small"
+              style={{
+                padding: "5px 12px",
+                fontSize: "0.76rem",
+                borderColor: "rgba(56, 189, 248, 0.4)",
+                color: "#38bdf8",
+              }}
+              onClick={handleToggleFullscreen}
+              title="Toggle full screen mode"
+            >
+              {isFullscreen ? "⤓ Exit Fullscreen" : "⛶ Full Screen"}
+            </button>
+          )}
           <button
             type="button"
             className="secondary-btn secondary-btn--small"
@@ -561,49 +585,86 @@ function HtmlVirtualLabViewer({ htmlUrl, mechanism, onReload, reloadKey }) {
                 window.location.hash = "animations";
               }
             }}
-            title="Open dedicated Student Custom Animation Studio page"
+            title="Open dedicated Student Custom Animation screen"
           >
-            🌀 Studio Page ↗
+            🖥️ Dedicated Screen ↗
           </button>
-          <a
-            href={isSafeUrl(htmlUrl) ? htmlUrl : "#"}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="primary-btn"
-            style={{
-              padding: "5px 14px",
-              fontSize: "0.76rem",
-              textDecoration: "none",
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 4,
-            }}
-            title="Open in standalone tab"
-          >
-            Open in Tab ↗
-          </a>
+          {hasCustomHtml && (
+            <a
+              href={htmlUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="primary-btn"
+              style={{
+                padding: "5px 14px",
+                fontSize: "0.76rem",
+                textDecoration: "none",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 4,
+              }}
+              title="Open in standalone tab"
+            >
+              Open in Tab ↗
+            </a>
+          )}
         </div>
       </div>
 
-      {/* Full Lab Viewport */}
+      {/* Viewport: Full simulation or helpful placeholder */}
       <div
         style={{
           width: "100%",
           flex: 1,
-          minHeight: isFullscreen ? "calc(100vh - 58px)" : "520px",
-          height: isFullscreen ? "calc(100vh - 58px)" : "580px",
+          minHeight: isFullscreen ? "calc(100vh - 58px)" : "420px",
+          height: isFullscreen ? "calc(100vh - 58px)" : "460px",
           background: "#050811",
           position: "relative",
+          display: "flex",
+          flexDirection: "column",
         }}
       >
-        <iframe
-          key={reloadKey}
-          src={htmlUrl}
-          title={`${mechanism?.name || "Mechanism"} Interactive Virtual Lab`}
-          sandbox="allow-scripts allow-popups allow-forms allow-same-origin"
-          style={{ width: "100%", height: "100%", border: 0, display: "block" }}
-          allow="accelerometer; autoplay; encrypted-media; gyroscope"
-        />
+        {hasCustomHtml ? (
+          <iframe
+            key={reloadKey}
+            src={htmlUrl}
+            title={`${mechanism?.name || "Mechanism"} Student Custom Animation`}
+            sandbox="allow-scripts allow-popups allow-forms allow-same-origin"
+            style={{ width: "100%", height: "100%", border: 0, display: "block", flex: 1 }}
+            allow="accelerometer; autoplay; encrypted-media; gyroscope"
+          />
+        ) : (
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: "36px 20px",
+              height: "100%",
+              flex: 1,
+              textAlign: "center",
+              background: "radial-gradient(ellipse at center, rgba(56, 189, 248, 0.05) 0%, rgba(3, 7, 18, 0.8) 100%)",
+            }}
+          >
+            <span style={{ fontSize: "2.6rem", marginBottom: 12 }}>📁</span>
+            <h4 style={{ margin: "0 0 8px", color: "#f8fafc", fontSize: "1.05rem" }}>
+              No Student Custom Animation Attached
+            </h4>
+            <p style={{ margin: "0 0 18px", color: "#94a3b8", fontSize: "0.82rem", maxWidth: 320, lineHeight: 1.5 }}>
+              The student has not attached a custom HTML virtual lab file yet. You can still explore the live Kinematic Animation beside this card.
+            </p>
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "center" }}>
+              <button
+                type="button"
+                className="secondary-btn secondary-btn--small"
+                onClick={() => { window.location.hash = "animations"; }}
+              >
+                🖥️ Browse Student Animations
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -763,7 +824,7 @@ function MediaPanel({ items, tab, isAdmin, onDelete, mechanism, htmlAnimationUrl
   if (tab === "Animation") {
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
-        {/* ── WORKBENCH: ANIMATION / VIRTUAL LAB + AUTOMATIC SIDE-BY-SIDE DOF CALCULATOR ── */}
+        {/* ── 3-PANEL WORKBENCH: ANIMATION + STUDENT CUSTOM ANIMATION + DOF CALCULATOR ── */}
         <div
           className="tom-workbench-grid"
           style={{
@@ -773,20 +834,76 @@ function MediaPanel({ items, tab, isAdmin, onDelete, mechanism, htmlAnimationUrl
             alignItems: "stretch",
           }}
         >
-          <div style={{ minWidth: 0, display: "flex", flexDirection: "column" }}>
-            {htmlAnimationUrl ? (
-              <HtmlVirtualLabViewer
-                htmlUrl={htmlAnimationUrl}
-                mechanism={mechanism}
-                reloadKey={animReloadKey}
-                onReload={() => setAnimReloadKey((k) => k + 1)}
-              />
-            ) : (
+          {/* 1. KINEMATIC ANIMATION */}
+          <div
+            style={{
+              minWidth: 0,
+              display: "flex",
+              flexDirection: "column",
+              borderRadius: 18,
+              overflow: "hidden",
+              border: "1px solid rgba(255, 255, 255, 0.12)",
+              background: "rgba(10, 16, 28, 0.9)",
+              boxShadow: "0 10px 30px rgba(0, 0, 0, 0.45)",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                padding: "12px 18px",
+                background: "rgba(15, 23, 42, 0.9)",
+                borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
+                gap: 10,
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <span style={{ fontSize: "1.2rem" }}>⚙️</span>
+                <div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <strong style={{ color: "#f8fafc", fontSize: "0.95rem" }}>
+                      Kinematic Animation
+                    </strong>
+                    <span
+                      style={{
+                        fontSize: "0.68rem",
+                        padding: "2px 8px",
+                        borderRadius: "999px",
+                        background: "rgba(168, 85, 247, 0.15)",
+                        color: "#c084fc",
+                        border: "1px solid rgba(168, 85, 247, 0.35)",
+                        fontWeight: 700,
+                        fontFamily: "var(--font-mono, monospace)",
+                      }}
+                    >
+                      MOTION MODEL
+                    </span>
+                  </div>
+                  <span style={{ fontSize: "0.74rem", color: "var(--muted, #94a3b8)" }}>
+                    Dynamic link movement &amp; joint paths
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div style={{ flex: 1, minHeight: "420px", position: "relative" }}>
               <MechanismPreview mechanism={mechanism} />
-            )}
+            </div>
           </div>
 
-          <div style={{ minWidth: "280px", maxWidth: "100%" }}>
+          {/* 2. STUDENT CUSTOM ANIMATION (with Full Screen & Dedicated Screen) */}
+          <div style={{ minWidth: 0, display: "flex", flexDirection: "column" }}>
+            <StudentCustomAnimationViewer
+              htmlUrl={htmlAnimationUrl}
+              mechanism={mechanism}
+              reloadKey={animReloadKey}
+              onReload={() => setAnimReloadKey((k) => k + 1)}
+            />
+          </div>
+
+          {/* 3. GRÜBLER DOF CALCULATOR */}
+          <div style={{ minWidth: 300, display: "flex", flexDirection: "column" }}>
             <DofCalculatorWidget mechanism={mechanism} />
           </div>
         </div>
