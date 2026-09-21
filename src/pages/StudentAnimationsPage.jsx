@@ -6,12 +6,42 @@ import { tomCategoryMeta } from "../tom/tomConstants.js";
 
 function isSafeUrl(rawUrl) {
   if (!rawUrl || typeof rawUrl !== "string") return false;
+  const trimmed = rawUrl.trim();
+  if (trimmed.startsWith("javascript:") || trimmed.startsWith("vbscript:")) return false;
+  if (trimmed.startsWith("data:text/html") || trimmed.startsWith("data:image/") || trimmed.startsWith("blob:")) return true;
   try {
-    const parsed = new URL(rawUrl.trim());
-    return parsed.protocol === "https:" || parsed.protocol === "http:";
+    const parsed = new URL(trimmed, typeof window !== "undefined" ? window.location.href : "https://localhost");
+    return (
+      parsed.protocol === "https:" ||
+      parsed.protocol === "http:" ||
+      parsed.protocol === "blob:" ||
+      (parsed.protocol === "data:" && (trimmed.startsWith("data:text/html") || trimmed.startsWith("data:image/")))
+    );
   } catch {
     return false;
   }
+}
+
+function openHtmlInNewTab(url) {
+  if (!url) return;
+  const trimmed = url.trim();
+  if (trimmed.startsWith("data:text/html")) {
+    try {
+      const commaIdx = trimmed.indexOf(",");
+      if (commaIdx !== -1) {
+        const meta = trimmed.slice(0, commaIdx);
+        const raw = trimmed.slice(commaIdx + 1);
+        const html = meta.includes(";base64") ? atob(raw) : decodeURIComponent(raw);
+        const blob = new Blob([html], { type: "text/html" });
+        const blobUrl = URL.createObjectURL(blob);
+        window.open(blobUrl, "_blank", "noopener,noreferrer");
+        return;
+      }
+    } catch (e) {
+      console.error("Failed to open data URL in new tab:", e);
+    }
+  }
+  window.open(trimmed, "_blank", "noopener,noreferrer");
 }
 
 /**
@@ -29,9 +59,9 @@ export default function StudentAnimationsPage({ onNavigate, initialMechanismId }
   const mechanismsWithAnim = useMemo(() => {
     return mechanisms.filter(
       (m) =>
-        m.html_animation_url ||
-        (m.animation_url && typeof m.animation_url === "string" && m.animation_url.toLowerCase().includes(".html")) ||
-        (Array.isArray(m.media) && m.media.some((row) => row.file_type === "animation" || row.format === "html"))
+        (m.html_animation_url && isSafeUrl(m.html_animation_url)) ||
+        (m.animation_url && isSafeUrl(m.animation_url)) ||
+        (Array.isArray(m.media) && m.media.some((row) => (row.file_type === "animation" || row.format === "html") && isSafeUrl(row.file_url)))
     );
   }, [mechanisms]);
 
@@ -81,12 +111,14 @@ export default function StudentAnimationsPage({ onNavigate, initialMechanismId }
 
   const htmlUrl = useMemo(() => {
     if (!activeMechanism) return null;
-    if (activeMechanism.html_animation_url) return activeMechanism.html_animation_url.trim();
-    if (activeMechanism.animation_url && activeMechanism.animation_url.toLowerCase().includes(".html")) {
+    if (activeMechanism.html_animation_url && isSafeUrl(activeMechanism.html_animation_url)) {
+      return activeMechanism.html_animation_url.trim();
+    }
+    if (activeMechanism.animation_url && isSafeUrl(activeMechanism.animation_url)) {
       return activeMechanism.animation_url.trim();
     }
     const mediaHtml = activeMechanism.media?.find(
-      (m) => (m.file_type === "animation" || m.format === "html") && typeof m.file_url === "string" && m.file_url.includes(".html")
+      (m) => (m.file_type === "animation" || m.format === "html") && isSafeUrl(m.file_url)
     );
     if (mediaHtml) return mediaHtml.file_url.trim();
     return null;
@@ -367,28 +399,27 @@ export default function StudentAnimationsPage({ onNavigate, initialMechanismId }
                     {isFullscreen ? "⤓ Exit Fullscreen" : "⛶ Fullscreen Lab"}
                   </button>
                   {htmlUrl && isSafeUrl(htmlUrl) && (
-                    <a
-                      href={htmlUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                    <button
+                      type="button"
                       className="primary-btn"
                       style={{
                         padding: "5px 14px",
                         fontSize: "0.76rem",
-                        textDecoration: "none",
                         display: "inline-flex",
                         alignItems: "center",
                         gap: 4,
+                        cursor: "pointer",
                       }}
-                      title="Open in standalone tab"
+                      onClick={() => openHtmlInNewTab(htmlUrl)}
+                      title="Open simulation in a new browser tab"
                     >
                       Open in Tab ↗
-                    </a>
+                    </button>
                   )}
                 </div>
               </div>
 
-              {/* Viewport: Either Full HTML simulation or Canvas simulation */}
+              {/* Viewport: Either Full HTML simulation or Informative placeholder */}
               <div
                 style={{
                   width: "100%",
@@ -411,13 +442,47 @@ export default function StudentAnimationsPage({ onNavigate, initialMechanismId }
                     allow="accelerometer; autoplay; encrypted-media; gyroscope"
                   />
                 ) : (
-                  <div style={{ padding: "16px", height: "100%", display: "flex", flexDirection: "column" }}>
-                    <div style={{ flex: 1 }}>
-                      <MechanismPreview mechanism={activeMechanism} />
-                    </div>
-                    <p style={{ margin: "10px 0 0", fontSize: "0.78rem", color: "var(--muted, #94a3b8)", textAlign: "center" }}>
-                      💡 Tip: Student can upload custom <code>.html</code> virtual lab files directly in the mechanism submission form.
+                  <div
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      padding: "48px 24px",
+                      height: "100%",
+                      flex: 1,
+                      textAlign: "center",
+                      background: "radial-gradient(ellipse at center, rgba(56, 189, 248, 0.05) 0%, rgba(3, 7, 18, 0.8) 100%)",
+                    }}
+                  >
+                    <span style={{ fontSize: "3.2rem", marginBottom: 14 }}>🌀</span>
+                    <h3 style={{ margin: "0 0 10px", color: "#f8fafc", fontSize: "1.25rem" }}>
+                      No Student Custom Animation Attached
+                    </h3>
+                    <p style={{ margin: "0 0 22px", color: "#94a3b8", fontSize: "0.88rem", maxWidth: 440, lineHeight: 1.6 }}>
+                      This mechanism currently uses the kinematic motion simulation shown on the right. Students can submit custom interactive HTML animations, virtual labs, or simulations via the submission page.
                     </p>
+                    <div style={{ display: "flex", gap: 12, flexWrap: "wrap", justifyContent: "center" }}>
+                      <button
+                        type="button"
+                        className="primary-btn"
+                        onClick={() => onNavigate("submit")}
+                      >
+                        ➕ Submit HTML Animation →
+                      </button>
+                      <button
+                        type="button"
+                        className="secondary-btn"
+                        onClick={() => {
+                          if (activeMechanism?.id) {
+                            window.location.hash = `mechanism/${activeMechanism.id}`;
+                            onNavigate("repository");
+                          }
+                        }}
+                      >
+                        📖 View Mechanism Specs
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>

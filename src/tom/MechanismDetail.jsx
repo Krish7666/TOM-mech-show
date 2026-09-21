@@ -57,9 +57,17 @@ function getVideoEmbedUrl(rawUrl) {
 
 function isSafeUrl(rawUrl) {
   if (!rawUrl || typeof rawUrl !== "string") return false;
+  const trimmed = rawUrl.trim();
+  if (trimmed.startsWith("javascript:") || trimmed.startsWith("vbscript:")) return false;
+  if (trimmed.startsWith("data:text/html") || trimmed.startsWith("data:image/") || trimmed.startsWith("blob:")) return true;
   try {
-    const parsed = new URL(rawUrl.trim());
-    return parsed.protocol === "https:" || parsed.protocol === "http:";
+    const parsed = new URL(trimmed, typeof window !== "undefined" ? window.location.href : "https://localhost");
+    return (
+      parsed.protocol === "https:" ||
+      parsed.protocol === "http:" ||
+      parsed.protocol === "blob:" ||
+      (parsed.protocol === "data:" && (trimmed.startsWith("data:text/html") || trimmed.startsWith("data:image/")))
+    );
   } catch {
     return false;
   }
@@ -67,14 +75,42 @@ function isSafeUrl(rawUrl) {
 
 function isHtmlAnimationUrl(rawUrl) {
   if (!rawUrl || typeof rawUrl !== "string") return false;
-  if (!isSafeUrl(rawUrl)) return false;
-  const u = rawUrl.trim().toLowerCase();
+  const trimmed = rawUrl.trim();
+  if (trimmed.startsWith("data:text/html") || trimmed.startsWith("blob:")) return true;
+  if (!isSafeUrl(trimmed)) return false;
+  const u = trimmed.toLowerCase();
   return (
     u.endsWith(".html") ||
     u.endsWith(".htm") ||
     u.includes(".html?") ||
-    u.includes(".htm?")
+    u.includes(".htm?") ||
+    u.includes("/animations/") ||
+    u.includes("animation") ||
+    u.includes("simulator") ||
+    u.includes("vlab")
   );
+}
+
+function openHtmlInNewTab(url) {
+  if (!url) return;
+  const trimmed = url.trim();
+  if (trimmed.startsWith("data:text/html")) {
+    try {
+      const commaIdx = trimmed.indexOf(",");
+      if (commaIdx !== -1) {
+        const meta = trimmed.slice(0, commaIdx);
+        const raw = trimmed.slice(commaIdx + 1);
+        const html = meta.includes(";base64") ? atob(raw) : decodeURIComponent(raw);
+        const blob = new Blob([html], { type: "text/html" });
+        const blobUrl = URL.createObjectURL(blob);
+        window.open(blobUrl, "_blank", "noopener,noreferrer");
+        return;
+      }
+    } catch (e) {
+      console.error("Failed to open data URL in new tab:", e);
+    }
+  }
+  window.open(trimmed, "_blank", "noopener,noreferrer");
 }
 
 export default function MechanismDetail({ id, isAdmin, onBack, onChanged }) {
@@ -103,13 +139,13 @@ export default function MechanismDetail({ id, isAdmin, onBack, onChanged }) {
   }, [id]);
 
   const htmlAnimationUrl = useMemo(() => {
-    if (mechanism?.html_animation_url && isHtmlAnimationUrl(mechanism.html_animation_url)) {
+    if (mechanism?.html_animation_url && isSafeUrl(mechanism.html_animation_url)) {
       return mechanism.html_animation_url.trim();
     }
-    if (mechanism?.animation_url && isHtmlAnimationUrl(mechanism.animation_url)) {
+    if (mechanism?.animation_url && (isHtmlAnimationUrl(mechanism.animation_url) || isSafeUrl(mechanism.animation_url))) {
       return mechanism.animation_url.trim();
     }
-    const animRow = media.find((m) => m.file_type === "animation" && isHtmlAnimationUrl(m.file_url));
+    const animRow = media.find((m) => (m.file_type === "animation" || m.format === "html") && isSafeUrl(m.file_url));
     if (animRow) return animRow.file_url.trim();
     if (Array.isArray(mechanism?.external_links)) {
       const link = mechanism.external_links.find((l) => isHtmlAnimationUrl(l));
@@ -589,23 +625,22 @@ function StudentCustomAnimationViewer({ htmlUrl, mechanism, onReload, reloadKey 
             🖥️ Dedicated Screen ↗
           </button>
           {hasCustomHtml && (
-            <a
-              href={htmlUrl}
-              target="_blank"
-              rel="noopener noreferrer"
+            <button
+              type="button"
               className="primary-btn"
               style={{
                 padding: "5px 14px",
                 fontSize: "0.76rem",
-                textDecoration: "none",
                 display: "inline-flex",
                 alignItems: "center",
                 gap: 4,
+                cursor: "pointer",
               }}
-              title="Open in standalone tab"
+              onClick={() => openHtmlInNewTab(htmlUrl)}
+              title="Open simulation in a new browser tab"
             >
               Open in Tab ↗
-            </a>
+            </button>
           )}
         </div>
       </div>
