@@ -925,6 +925,18 @@
   .tom-spec-grid { grid-template-columns: repeat(2, 1fr); }
 }
 
+/* ─── ANIMATION STUDIO 3-PANEL WORKBENCH ──────────────────────────────── */
+@media (max-width: 1100px) {
+  .tom-workbench-grid {
+    grid-template-columns: 1fr 1fr !important;
+  }
+}
+@media (max-width: 740px) {
+  .tom-workbench-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
 /* ─── VIRTUAL LAB ENGINE STYLES ───────────────────────────────────────────── */
 .vlab-shell {
   border: 1px solid rgba(255, 255, 255, 0.1);

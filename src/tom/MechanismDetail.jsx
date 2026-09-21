@@ -1,11 +1,10 @@
-import { useEffect, useMemo, useState, useRef } from "react";
+import { useEffect, useMemo, useState, useRef, lazy, Suspense } from "react";
 import { tomCategoryMeta } from "./tomConstants";
 import { fetchMechanismDetail, deleteMechanism, deleteMechanismMedia, approveMechanism, rejectMechanism } from "./tomApi";
 import { analyzeMechanism } from "./kinematics.js";
 import MechanismPreview from "./MechanismPreview.jsx";
 import DofCalculatorWidget from "./DofCalculatorWidget.jsx";
 
-import { lazy, Suspense } from "react";
 const Mechanism3DViewer = lazy(() => import("./Mechanism3DViewer.jsx"));
 
 const TABS = ["Overview", "Animation", "Images", "Videos", "CAD / 3D", "Documents"];
@@ -349,8 +348,8 @@ export default function MechanismDetail({ id, isAdmin, onBack, onChanged }) {
         {availableTabs.map((tab) => (
           <button key={tab} type="button" role="tab" aria-selected={activeTab === tab}
             className={`tom-detail__tab${activeTab === tab ? " tom-detail__tab--active" : ""}`}
-            onClick={() => setActiveTab(tab)}>
-            {tab === "Animation" ? (htmlAnimationUrl ? "🔬 Virtual Lab" : "🌀 Animation & DOF") : tab}
+            onClick={() => { setActiveTab(tab); window.scrollTo({ top: 0, behavior: "smooth" }); }}>
+            {tab === "Animation" ? "🧪 Animation & DOF Studio" : tab}
           </button>
         ))}
       </div>
@@ -696,17 +695,13 @@ function OverviewPanel({ mechanism, htmlAnimationUrl, onOpenAnimation }) {
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <span style={{ fontSize: "1.6rem" }}>{htmlAnimationUrl ? "🔬" : "🌀"}</span>
+          <span style={{ fontSize: "1.6rem" }}>🧪</span>
           <div>
             <strong style={{ color: "#f8fafc", fontSize: "0.96rem", display: "block" }}>
-              {htmlAnimationUrl
-                ? "Interactive Virtual Lab & Grübler DOF Calculator"
-                : "Kinematic Animation & Live Grübler DOF Calculator"}
+              Animation & DOF Studio
             </strong>
             <span style={{ fontSize: "0.78rem", color: "var(--muted, #94a3b8)" }}>
-              {htmlAnimationUrl
-                ? "Run student HTML interactive simulation and calculate planar degrees of freedom."
-                : "Explore kinematic movement model and calculate planar degrees of freedom."}
+              Kinematic animation, student custom HTML simulation, and live Grübler DOF calculator — all side by side.
             </span>
           </div>
         </div>
@@ -730,7 +725,7 @@ function OverviewPanel({ mechanism, htmlAnimationUrl, onOpenAnimation }) {
             }}
             title="Open dedicated Student Custom Animation Studio page"
           >
-            🌀 Studio Page ↗
+            🖥️ Dedicated Screen ↗
           </button>
           <button
             type="button"
@@ -744,7 +739,7 @@ function OverviewPanel({ mechanism, htmlAnimationUrl, onOpenAnimation }) {
             }}
             onClick={onOpenAnimation}
           >
-            {htmlAnimationUrl ? "🔬 Open Virtual Lab Tab →" : "🌀 View Animation Tab →"}
+            🧪 Open Studio Tab →
           </button>
         </div>
       </div>

@@ -107,7 +107,9 @@ export default function StudentAnimationsPage({ onNavigate, initialMechanismId }
 
   function handleSelect(id) {
     setSelectedId(id);
+    setReloadKey(0);
     window.location.hash = `animation/${id}`;
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   const meta = activeMechanism ? tomCategoryMeta(activeMechanism.category) : null;
@@ -175,6 +177,32 @@ export default function StudentAnimationsPage({ onNavigate, initialMechanismId }
           Dedicated virtual lab environment for interactive student-developed kinematic mechanisms, HTML animations, and real-time Grübler mobility calculations.
         </p>
       </div>
+
+      {/* Empty state when no mechanisms exist */}
+      {mechanisms.length === 0 && (
+        <div
+          style={{
+            textAlign: "center",
+            padding: "80px 24px",
+            borderRadius: 20,
+            background: "rgba(11, 16, 28, 0.6)",
+            border: "1px solid rgba(255, 255, 255, 0.06)",
+          }}
+        >
+          <span style={{ fontSize: "3rem", display: "block", marginBottom: 16 }}>📭</span>
+          <h3 style={{ color: "#f8fafc", margin: "0 0 8px" }}>No Mechanisms Submitted Yet</h3>
+          <p style={{ color: "#94a3b8", margin: "0 0 20px", maxWidth: 400, marginInline: "auto", lineHeight: 1.5 }}>
+            Be the first to share your kinematic mechanism project! Submit your working model with photos, videos, and an interactive HTML animation.
+          </p>
+          <button
+            type="button"
+            className="primary-btn"
+            onClick={() => onNavigate("submit")}
+          >
+            ➕ Submit a Mechanism →
+          </button>
+        </div>
+      )}
 
       {/* Mechanism Selector Tabs / Pills */}
       {mechanisms.length > 1 && (
