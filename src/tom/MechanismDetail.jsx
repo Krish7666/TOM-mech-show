@@ -350,7 +350,7 @@ export default function MechanismDetail({ id, isAdmin, onBack, onChanged }) {
           <button key={tab} type="button" role="tab" aria-selected={activeTab === tab}
             className={`tom-detail__tab${activeTab === tab ? " tom-detail__tab--active" : ""}`}
             onClick={() => setActiveTab(tab)}>
-            {tab === "Animation" ? (htmlAnimationUrl ? "🌐 HTML Animation" : "🌀 Animation") : tab}
+            {tab === "Animation" ? (htmlAnimationUrl ? "🔬 Virtual Lab" : "🌀 Animation & DOF") : tab}
           </button>
         ))}
       </div>
@@ -358,7 +358,11 @@ export default function MechanismDetail({ id, isAdmin, onBack, onChanged }) {
 
       <div className="tom-detail__panel">
         {activeTab === "Overview" ? (
-          <OverviewPanel mechanism={mechanism} htmlAnimationUrl={htmlAnimationUrl} />
+          <OverviewPanel
+            mechanism={mechanism}
+            htmlAnimationUrl={htmlAnimationUrl}
+            onOpenAnimation={() => setActiveTab("Animation")}
+          />
         ) : (
           <MediaPanel
             items={mediaByTab[activeTab] || []}
@@ -585,8 +589,7 @@ function HtmlVirtualLabViewer({ htmlUrl, mechanism, onReload, reloadKey }) {
   );
 }
 
-function OverviewPanel({ mechanism, htmlAnimationUrl }) {
-  const [reloadKey, setReloadKey] = useState(0);
+function OverviewPanel({ mechanism, htmlAnimationUrl, onOpenAnimation }) {
   const rawCover = mechanism.cover_image || mechanism.preview_image_url || mechanism.image || null;
   const cover =
     rawCover && typeof rawCover === "string" && !rawCover.startsWith("data:image/svg+xml")
@@ -595,33 +598,52 @@ function OverviewPanel({ mechanism, htmlAnimationUrl }) {
 
   return (
     <div className="tom-overview">
-      {/* ── WORKBENCH: ANIMATION / VIRTUAL LAB + AUTOMATIC SIDE-BY-SIDE DOF CALCULATOR ── */}
+      {/* Interactive Virtual Lab / Animation Callout Banner */}
       <div
-        className="tom-workbench-grid"
         style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
-          gap: 20,
-          alignItems: "stretch",
-          marginBottom: 26,
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          padding: "14px 18px",
+          marginBottom: 22,
+          borderRadius: 14,
+          background: "linear-gradient(135deg, rgba(56, 189, 248, 0.12), rgba(14, 165, 233, 0.04))",
+          border: "1px solid rgba(56, 189, 248, 0.3)",
+          boxShadow: "0 6px 20px rgba(0, 0, 0, 0.25)",
+          flexWrap: "wrap",
+          gap: 12,
         }}
       >
-        <div style={{ minWidth: 0, display: "flex", flexDirection: "column" }}>
-          {htmlAnimationUrl ? (
-            <HtmlVirtualLabViewer
-              htmlUrl={htmlAnimationUrl}
-              mechanism={mechanism}
-              onReload={() => setReloadKey((k) => k + 1)}
-              reloadKey={reloadKey}
-            />
-          ) : (
-            <MechanismPreview mechanism={mechanism} />
-          )}
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <span style={{ fontSize: "1.6rem" }}>{htmlAnimationUrl ? "🔬" : "🌀"}</span>
+          <div>
+            <strong style={{ color: "#f8fafc", fontSize: "0.96rem", display: "block" }}>
+              {htmlAnimationUrl
+                ? "Interactive Virtual Lab & Grübler DOF Calculator"
+                : "Kinematic Animation & Live Grübler DOF Calculator"}
+            </strong>
+            <span style={{ fontSize: "0.78rem", color: "var(--muted, #94a3b8)" }}>
+              {htmlAnimationUrl
+                ? "Run student HTML interactive simulation and calculate planar degrees of freedom."
+                : "Explore kinematic movement model and calculate planar degrees of freedom."}
+            </span>
+          </div>
         </div>
 
-        <div style={{ minWidth: "280px", maxWidth: "100%" }}>
-          <DofCalculatorWidget mechanism={mechanism} />
-        </div>
+        <button
+          type="button"
+          className="primary-btn"
+          style={{
+            padding: "8px 18px",
+            fontSize: "0.84rem",
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "6px",
+          }}
+          onClick={onOpenAnimation}
+        >
+          {htmlAnimationUrl ? "🔬 Open Virtual Lab →" : "🌀 View Animation & DOF →"}
+        </button>
       </div>
 
       {cover && (
