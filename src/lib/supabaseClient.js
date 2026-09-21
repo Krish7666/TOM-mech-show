@@ -26,7 +26,7 @@ export const supabase = isSupabaseConfigured
 export const ADMIN_SESSION_KEY = "tom-admin-session";
 export const ADMIN_USERNAME = "admin";
 // SHA-256 hash of the administrative password (no plaintext stored)
-export const ADMIN_PASSWORD_HASH = "bf91df79a0c1db76d19817bf00d30631981b7d11bfb85a821e6527e62542c801";
+export const ADMIN_PASSWORD_HASH = "0d333b580efc87df91088fccb5c365100c3e33d3891abee220bf68d9fe764e2b";
 
 export async function sha256Hex(text) {
   const bytes = new TextEncoder().encode(text);
