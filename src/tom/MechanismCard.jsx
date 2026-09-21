@@ -192,14 +192,18 @@ const MechanismCard = memo(function MechanismCard({ mechanism, onView }) {
                 style={{
                   fontSize: "0.68rem",
                   color: "#38bdf8",
-                  background: "rgba(56, 189, 248, 0.12)",
-                  border: "1px solid rgba(56, 189, 248, 0.3)",
-                  padding: "2px 7px",
+                  background: "rgba(56, 189, 248, 0.18)",
+                  border: "1px solid rgba(56, 189, 248, 0.45)",
+                  padding: "2px 8px",
                   borderRadius: "999px",
-                  fontWeight: 600,
+                  fontWeight: 700,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "3px",
+                  boxShadow: "0 0 10px rgba(56, 189, 248, 0.2)",
                 }}
               >
-                🌐 HTML
+                🔬 Virtual Lab
               </span>
             )}
           </div>

@@ -1,7 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import { tomCategoryMeta } from "./tomConstants";
 import { fetchMechanismDetail, deleteMechanism, deleteMechanismMedia, approveMechanism, rejectMechanism } from "./tomApi";
 import { analyzeMechanism } from "./kinematics.js";
+import MechanismPreview from "./MechanismPreview.jsx";
+import DofCalculatorWidget from "./DofCalculatorWidget.jsx";
 
 import { lazy, Suspense } from "react";
 const Mechanism3DViewer = lazy(() => import("./Mechanism3DViewer.jsx"));
@@ -433,6 +435,156 @@ export default function MechanismDetail({ id, isAdmin, onBack, onChanged }) {
   );
 }
 
+function HtmlVirtualLabViewer({ htmlUrl, mechanism, onReload, reloadKey }) {
+  const containerRef = useRef(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  useEffect(() => {
+    function onFsChange() {
+      setIsFullscreen(Boolean(document.fullscreenElement));
+    }
+    document.addEventListener("fullscreenchange", onFsChange);
+    return () => document.removeEventListener("fullscreenchange", onFsChange);
+  }, []);
+
+  function handleToggleFullscreen() {
+    if (!containerRef.current) return;
+    if (!document.fullscreenElement) {
+      if (containerRef.current.requestFullscreen) {
+        containerRef.current.requestFullscreen();
+      }
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen();
+      }
+    }
+  }
+
+  return (
+    <div
+      ref={containerRef}
+      style={{
+        borderRadius: isFullscreen ? 0 : 18,
+        overflow: "hidden",
+        border: isFullscreen ? "none" : "1px solid rgba(56, 189, 248, 0.4)",
+        background: "linear-gradient(135deg, rgba(10, 16, 28, 0.95), rgba(7, 10, 18, 0.98))",
+        boxShadow: isFullscreen ? "none" : "0 12px 36px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(56, 189, 248, 0.2)",
+        display: "flex",
+        flexDirection: "column",
+        width: "100%",
+        height: isFullscreen ? "100vh" : "100%",
+        minHeight: isFullscreen ? "100vh" : "580px",
+      }}
+    >
+      {/* Virtual Lab Header Bar */}
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          padding: "12px 18px",
+          background: "rgba(10, 16, 28, 0.92)",
+          borderBottom: "1px solid rgba(56, 189, 248, 0.25)",
+          flexWrap: "wrap",
+          gap: 10,
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <span style={{ fontSize: "1.3rem" }}>🔬</span>
+          <div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <strong style={{ color: "#f8fafc", fontSize: "0.98rem" }}>
+                Interactive Virtual Lab Simulation
+              </strong>
+              <span
+                style={{
+                  fontSize: "0.68rem",
+                  padding: "2px 8px",
+                  borderRadius: "999px",
+                  background: "rgba(56, 189, 248, 0.15)",
+                  color: "#38bdf8",
+                  border: "1px solid rgba(56, 189, 248, 0.35)",
+                  fontWeight: 700,
+                  fontFamily: "var(--font-mono, monospace)",
+                }}
+              >
+                HTML VIRTUAL LAB
+              </span>
+            </div>
+            <span style={{ fontSize: "0.75rem", color: "var(--muted, #94a3b8)" }}>
+              Student Simulation & Kinematic Model · {mechanism?.name || "Mechanism"}
+            </span>
+          </div>
+        </div>
+
+        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+          <button
+            type="button"
+            className="secondary-btn secondary-btn--small"
+            style={{ padding: "5px 12px", fontSize: "0.76rem" }}
+            onClick={onReload}
+            title="Reload interactive simulation"
+          >
+            🔄 Reload Lab
+          </button>
+          <button
+            type="button"
+            className="secondary-btn secondary-btn--small"
+            style={{
+              padding: "5px 12px",
+              fontSize: "0.76rem",
+              borderColor: "rgba(56, 189, 248, 0.4)",
+              color: "#38bdf8",
+            }}
+            onClick={handleToggleFullscreen}
+            title="Toggle full screen laboratory view"
+          >
+            {isFullscreen ? "⤓ Exit Fullscreen" : "⛶ Fullscreen Lab"}
+          </button>
+          <a
+            href={isSafeUrl(htmlUrl) ? htmlUrl : "#"}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="primary-btn"
+            style={{
+              padding: "5px 14px",
+              fontSize: "0.76rem",
+              textDecoration: "none",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 4,
+            }}
+            title="Open in standalone tab"
+          >
+            Open in Tab ↗
+          </a>
+        </div>
+      </div>
+
+      {/* Full Lab Viewport */}
+      <div
+        style={{
+          width: "100%",
+          flex: 1,
+          minHeight: isFullscreen ? "calc(100vh - 58px)" : "520px",
+          height: isFullscreen ? "calc(100vh - 58px)" : "580px",
+          background: "#050811",
+          position: "relative",
+        }}
+      >
+        <iframe
+          key={reloadKey}
+          src={htmlUrl}
+          title={`${mechanism?.name || "Mechanism"} Interactive Virtual Lab`}
+          sandbox="allow-scripts allow-popups allow-forms allow-same-origin"
+          style={{ width: "100%", height: "100%", border: 0, display: "block" }}
+          allow="accelerometer; autoplay; encrypted-media; gyroscope"
+        />
+      </div>
+    </div>
+  );
+}
+
 function OverviewPanel({ mechanism, htmlAnimationUrl }) {
   const [reloadKey, setReloadKey] = useState(0);
   const rawCover = mechanism.cover_image || mechanism.preview_image_url || mechanism.image || null;
@@ -443,77 +595,36 @@ function OverviewPanel({ mechanism, htmlAnimationUrl }) {
 
   return (
     <div className="tom-overview">
-      {/* ── INTERACTIVE HTML ANIMATION (EMBEDDED ON MECHANISM PAGE) ── */}
-      {htmlAnimationUrl && (
-        <div
-          style={{
-            marginBottom: 24,
-            borderRadius: 18,
-            overflow: "hidden",
-            border: "1px solid rgba(56, 189, 248, 0.4)",
-            background: "linear-gradient(135deg, rgba(56, 189, 248, 0.1), rgba(14, 165, 233, 0.04))",
-            boxShadow: "0 12px 32px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(56, 189, 248, 0.15)",
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              padding: "12px 18px",
-              background: "rgba(10, 16, 28, 0.88)",
-              borderBottom: "1px solid rgba(56, 189, 248, 0.2)",
-              flexWrap: "wrap",
-              gap: 10,
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <span style={{ fontSize: "1.25rem" }}>🌐</span>
-              <div>
-                <strong style={{ color: "#f8fafc", fontSize: "0.98rem", display: "block" }}>
-                  Interactive Mechanism Animation
-                </strong>
-                <span style={{ fontSize: "0.76rem", color: "#38bdf8", fontFamily: "var(--font-mono, monospace)" }}>
-                  HTML Animation (.html) · Submitted by {mechanism.student_name || "Student"}
-                </span>
-              </div>
-            </div>
-            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-              <button
-                type="button"
-                className="secondary-btn secondary-btn--small"
-                style={{ padding: "5px 12px", fontSize: "0.78rem" }}
-                onClick={() => setReloadKey((k) => k + 1)}
-                title="Restart Animation"
-              >
-                🔄 Reload Animation
-              </button>
-              <a
-                href={isSafeUrl(htmlAnimationUrl) ? htmlAnimationUrl : "#"}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="primary-btn"
-                style={{ padding: "5px 14px", fontSize: "0.78rem", minHeight: "32px", textDecoration: "none" }}
-              >
-                Open Fullscreen ↗
-              </a>
-            </div>
-          </div>
-
-          <div style={{ width: "100%", height: "480px", background: "#050811", position: "relative" }}>
-            <iframe
-              key={reloadKey}
-              src={htmlAnimationUrl}
-              title={`${mechanism.name} Interactive HTML Animation`}
-              sandbox="allow-scripts allow-popups allow-forms"
-              style={{ width: "100%", height: "100%", border: 0, display: "block" }}
-              allow="accelerometer; autoplay; encrypted-media; gyroscope"
+      {/* ── WORKBENCH: ANIMATION / VIRTUAL LAB + AUTOMATIC SIDE-BY-SIDE DOF CALCULATOR ── */}
+      <div
+        className="tom-workbench-grid"
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
+          gap: 20,
+          alignItems: "stretch",
+          marginBottom: 26,
+        }}
+      >
+        <div style={{ minWidth: 0, display: "flex", flexDirection: "column" }}>
+          {htmlAnimationUrl ? (
+            <HtmlVirtualLabViewer
+              htmlUrl={htmlAnimationUrl}
+              mechanism={mechanism}
+              onReload={() => setReloadKey((k) => k + 1)}
+              reloadKey={reloadKey}
             />
-          </div>
+          ) : (
+            <MechanismPreview mechanism={mechanism} />
+          )}
         </div>
-      )}
 
-      {cover && !htmlAnimationUrl && (
+        <div style={{ minWidth: "280px", maxWidth: "100%" }}>
+          <DofCalculatorWidget mechanism={mechanism} />
+        </div>
+      </div>
+
+      {cover && (
         <div className="tom-overview__media-hero" style={{ marginBottom: 20, borderRadius: 16, overflow: "hidden", border: "1px solid var(--border)", maxHeight: 380, background: "rgba(0,0,0,0.2)" }}>
           <img
             src={cover}
@@ -587,68 +698,34 @@ function MediaPanel({ items, tab, isAdmin, onDelete, mechanism, htmlAnimationUrl
 
   if (tab === "Animation") {
     return (
-      <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-        {/* Featured Student HTML Animation */}
-        {htmlAnimationUrl && (
-          <div
-            style={{
-              borderRadius: 18,
-              overflow: "hidden",
-              border: "1px solid rgba(56, 189, 248, 0.4)",
-              background: "linear-gradient(135deg, rgba(56, 189, 248, 0.1), rgba(14, 165, 233, 0.04))",
-              boxShadow: "0 10px 30px rgba(0, 0, 0, 0.4)",
-              marginBottom: 10,
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                padding: "12px 18px",
-                background: "rgba(10, 16, 28, 0.88)",
-                borderBottom: "1px solid rgba(56, 189, 248, 0.2)",
-                flexWrap: "wrap",
-                gap: 8,
-              }}
-            >
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{ fontSize: "1.2rem" }}>🌐</span>
-                <strong style={{ fontSize: "0.95rem", color: "#38bdf8" }}>
-                  Interactive Mechanism Animation (HTML)
-                </strong>
-              </div>
-              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                <button
-                  type="button"
-                  className="secondary-btn secondary-btn--small"
-                  onClick={() => setAnimReloadKey((k) => k + 1)}
-                >
-                  🔄 Reload
-                </button>
-                <a
-                  href={isSafeUrl(htmlAnimationUrl) ? htmlAnimationUrl : "#"}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="primary-btn"
-                  style={{ padding: "5px 14px", fontSize: "0.78rem", minHeight: "32px", textDecoration: "none" }}
-                >
-                  Open Full View ↗
-                </a>
-              </div>
-            </div>
-            <div style={{ width: "100%", height: "500px", background: "#050811" }}>
-              <iframe
-                key={animReloadKey}
-                src={htmlAnimationUrl}
-                title={`${mechanism?.name || "Mechanism"} Interactive Animation`}
-                sandbox="allow-scripts allow-popups allow-forms"
-                style={{ width: "100%", height: "100%", border: 0, display: "block" }}
-                allow="accelerometer; autoplay; encrypted-media; gyroscope"
+      <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+        {/* ── WORKBENCH: ANIMATION / VIRTUAL LAB + AUTOMATIC SIDE-BY-SIDE DOF CALCULATOR ── */}
+        <div
+          className="tom-workbench-grid"
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
+            gap: 20,
+            alignItems: "stretch",
+          }}
+        >
+          <div style={{ minWidth: 0, display: "flex", flexDirection: "column" }}>
+            {htmlAnimationUrl ? (
+              <HtmlVirtualLabViewer
+                htmlUrl={htmlAnimationUrl}
+                mechanism={mechanism}
+                reloadKey={animReloadKey}
+                onReload={() => setAnimReloadKey((k) => k + 1)}
               />
-            </div>
+            ) : (
+              <MechanismPreview mechanism={mechanism} />
+            )}
           </div>
-        )}
+
+          <div style={{ minWidth: "280px", maxWidth: "100%" }}>
+            <DofCalculatorWidget mechanism={mechanism} />
+          </div>
+        </div>
 
         {items.length > 0 && (
           <div className="tom-media-gallery" style={{ marginTop: 12 }}>
@@ -665,24 +742,6 @@ function MediaPanel({ items, tab, isAdmin, onDelete, mechanism, htmlAnimationUrl
                 </div>
               </div>
             ))}
-          </div>
-        )}
-
-        {!htmlAnimationUrl && items.length === 0 && (
-          <div style={{ textAlign: "center", padding: "32px 16px" }}>
-            <p className="tom-overview__empty" style={{ margin: "0 0 14px" }}>
-              No animation uploaded yet by student.
-            </p>
-            {onOpenVirtualLab && (
-              <button
-                type="button"
-                className="button button--secondary"
-                onClick={onOpenVirtualLab}
-                style={{ borderColor: "rgba(56, 189, 248, 0.4)", color: "#38bdf8" }}
-              >
-                🔬 Open Virtual Lab Simulator for this Mechanism →
-              </button>
-            )}
           </div>
         )}
       </div>

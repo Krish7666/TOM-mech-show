@@ -287,11 +287,9 @@ export async function fetchMechanismDetail(id) {
 /**
  * Creates a mechanism and saves it to the local repository,
  * and simultaneously uploads to Supabase if configured.
- *
- * Student submissions are created as PENDING (awaiting admin review).
- * Pass { approved: true } as the third argument for admin-added mechanisms.
+ * Submissions are published immediately as APPROVED (live in repository).
  */
-export async function submitMechanism(formValues, filesByType, { approved = false } = {}) {
+export async function submitMechanism(formValues, filesByType, { approved = true } = {}) {
   const links = formValues.num_links ? Number(formValues.num_links) : 4;
   const joints = formValues.num_joints ? Number(formValues.num_joints) : 4;
   const higherPairs = formValues.higher_pairs ? Number(formValues.higher_pairs) : 0;
@@ -414,7 +412,7 @@ export async function submitMechanism(formValues, filesByType, { approved = fals
         ? formValues.external_links.split(",").map((s) => s.trim()).filter(Boolean)
         : []),
     ],
-    status: approved ? MECHANISM_STATUS.APPROVED : MECHANISM_STATUS.PENDING,
+    status: approved !== false ? MECHANISM_STATUS.APPROVED : MECHANISM_STATUS.PENDING,
     cover_image: localCoverImage,
     preview_image_url: localCoverImage,
     background_image: formValues.background_image || formValues.bg_image_url || null,
@@ -451,7 +449,7 @@ export async function submitMechanism(formValues, filesByType, { approved = fals
         academic_year:                 localMech.academic_year,
         admin_feedback:                null,
         external_links:                localMech.external_links,
-        status:                        approved ? MECHANISM_STATUS.APPROVED : MECHANISM_STATUS.PENDING,
+        status:                        approved !== false ? MECHANISM_STATUS.APPROVED : MECHANISM_STATUS.PENDING,
         cover_image:                   localCoverImage,
       };
 

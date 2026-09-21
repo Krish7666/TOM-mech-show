@@ -675,7 +675,7 @@ export default function MechanismForm({ onCancel, onSubmit, submitting, formErro
             Cancel
           </button>
           <button type="submit" className="button button--primary" disabled={submitting}>
-            {submitting ? "Submitting…" : "Submit Mechanism"}
+            {submitting ? "Publishing…" : "Publish Mechanism"}
           </button>
         </div>
       </div>

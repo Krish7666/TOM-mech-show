@@ -47,7 +47,7 @@ export default function SubmitPage({ onNavigate, showToast }) {
               "⚠️ Submission saved — some large media files may not persist without Supabase configured."
             );
           } else {
-            showToast("✅ Mechanism submitted successfully for faculty review!");
+            showToast("✅ Mechanism published live to the cloud repository!");
           }
 
           await refreshData();

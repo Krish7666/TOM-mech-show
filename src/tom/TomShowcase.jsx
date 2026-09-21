@@ -115,7 +115,7 @@ export default function TomShowcase({ isAdmin, onRequestAdminLogin, onRequestAdd
     flash(
       hasBlobOnlyFiles
         ? "Mechanism submitted! ⚠️ Large file(s) are session-only — upload to Supabase to persist."
-        : "✅ Mechanism submitted! It will appear in the repository after admin review."
+        : "✅ Mechanism published live to the cloud repository!"
     );
     await refreshData();
   }
