@@ -184,7 +184,7 @@ export default function StudentAnimationsPage({ onNavigate, initialMechanismId }
             🔬 4-Bar Virtual Lab →
           </button>
           <span className="submit-page-badge" style={{ borderColor: "rgba(56, 189, 248, 0.4)", color: "#38bdf8" }}>
-            🌀 Student Custom Animation & Virtual Lab Studio
+            ⚙️ Kinematic Animation &amp; Grübler DOF Studio
           </span>
         </div>
       </div>
@@ -192,7 +192,7 @@ export default function StudentAnimationsPage({ onNavigate, initialMechanismId }
       {/* Page Header */}
       <div style={{ marginBottom: 24 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
-          <span style={{ fontSize: "1.6rem" }}>🌀</span>
+          <span style={{ fontSize: "1.6rem" }}>⚙️</span>
           <h1
             style={{
               fontSize: "clamp(1.5rem, 3.5vw, 2.2rem)",
@@ -202,11 +202,11 @@ export default function StudentAnimationsPage({ onNavigate, initialMechanismId }
               letterSpacing: "-0.02em",
             }}
           >
-            Student Custom <span style={{ color: "#38bdf8" }}>Animation Studio</span>
+            Kinematic Animation &amp; <span style={{ color: "#38bdf8" }}>DOF Studio</span>
           </h1>
         </div>
         <p style={{ color: "var(--muted, #94a3b8)", fontSize: "0.95rem", maxWidth: 840, margin: 0, lineHeight: 1.5 }}>
-          Dedicated virtual lab environment for interactive student-developed kinematic mechanisms, HTML animations, and real-time Grübler mobility calculations.
+          Dedicated virtual lab environment for live kinematic movement animations, real-time Grübler degrees of freedom mobility calculations, and student HTML interactive simulations.
         </p>
       </div>
 
@@ -345,29 +345,29 @@ export default function StudentAnimationsPage({ onNavigate, initialMechanismId }
                 }}
               >
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <span style={{ fontSize: "1.3rem" }}>🌀</span>
+                  <span style={{ fontSize: "1.3rem" }}>{htmlUrl ? "🌀" : "⚙️"}</span>
                   <div>
                     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                       <strong style={{ color: "#f8fafc", fontSize: "0.98rem" }}>
-                        Student Custom Animation
+                        {htmlUrl ? "Student Custom HTML Animation" : "Kinematic Motion Animation"}
                       </strong>
                       <span
                         style={{
                           fontSize: "0.68rem",
                           padding: "2px 8px",
                           borderRadius: "999px",
-                          background: htmlUrl ? "rgba(56, 189, 248, 0.15)" : "rgba(251, 191, 36, 0.15)",
-                          color: htmlUrl ? "#38bdf8" : "#fbbf24",
-                          border: `1px solid ${htmlUrl ? "rgba(56, 189, 248, 0.35)" : "rgba(251, 191, 36, 0.35)"}`,
+                          background: htmlUrl ? "rgba(56, 189, 248, 0.15)" : "rgba(168, 85, 247, 0.15)",
+                          color: htmlUrl ? "#38bdf8" : "#c084fc",
+                          border: `1px solid ${htmlUrl ? "rgba(56, 189, 248, 0.35)" : "rgba(168, 85, 247, 0.35)"}`,
                           fontWeight: 700,
                           fontFamily: "var(--font-mono, monospace)",
                         }}
                       >
-                        {htmlUrl ? "HTML VIRTUAL LAB" : "CANVAS SIMULATOR"}
+                        {htmlUrl ? "HTML VIRTUAL LAB" : "MOTION MODEL"}
                       </span>
                     </div>
                     <span style={{ fontSize: "0.76rem", color: "var(--muted, #94a3b8)" }}>
-                      {activeMechanism.name} · Contributed by {activeMechanism.student_name || "Student"} ({activeMechanism.college || "NMIET Mechanical"})
+                      {activeMechanism.name} · {activeMechanism.student_name ? `Contributed by ${activeMechanism.student_name}` : "Kinematic Mechanism"} ({activeMechanism.college || "NMIET Mechanical"})
                     </span>
                   </div>
                 </div>
@@ -419,7 +419,7 @@ export default function StudentAnimationsPage({ onNavigate, initialMechanismId }
                 </div>
               </div>
 
-              {/* Viewport: Either Full HTML simulation or Informative placeholder */}
+              {/* Viewport: Either Full HTML simulation or Canvas simulation */}
               <div
                 style={{
                   width: "100%",
@@ -442,115 +442,121 @@ export default function StudentAnimationsPage({ onNavigate, initialMechanismId }
                     allow="accelerometer; autoplay; encrypted-media; gyroscope"
                   />
                 ) : (
-                  <div
-                    style={{
-                      display: "flex",
-                      flexDirection: "column",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      padding: "48px 24px",
-                      height: "100%",
-                      flex: 1,
-                      textAlign: "center",
-                      background: "radial-gradient(ellipse at center, rgba(56, 189, 248, 0.05) 0%, rgba(3, 7, 18, 0.8) 100%)",
-                    }}
-                  >
-                    <span style={{ fontSize: "3.2rem", marginBottom: 14 }}>🌀</span>
-                    <h3 style={{ margin: "0 0 10px", color: "#f8fafc", fontSize: "1.25rem" }}>
-                      No Student Custom Animation Attached
-                    </h3>
-                    <p style={{ margin: "0 0 22px", color: "#94a3b8", fontSize: "0.88rem", maxWidth: 440, lineHeight: 1.6 }}>
-                      This mechanism currently uses the kinematic motion simulation shown on the right. Students can submit custom interactive HTML animations, virtual labs, or simulations via the submission page.
-                    </p>
-                    <div style={{ display: "flex", gap: 12, flexWrap: "wrap", justifyContent: "center" }}>
-                      <button
-                        type="button"
-                        className="primary-btn"
-                        onClick={() => onNavigate("submit")}
-                      >
-                        ➕ Submit HTML Animation →
-                      </button>
-                      <button
-                        type="button"
-                        className="secondary-btn"
-                        onClick={() => {
-                          if (activeMechanism?.id) {
-                            window.location.hash = `mechanism/${activeMechanism.id}`;
-                            onNavigate("repository");
-                          }
-                        }}
-                      >
-                        📖 View Mechanism Specs
-                      </button>
-                    </div>
+                  <div style={{ width: "100%", height: "100%", position: "relative", flex: 1, minHeight: "520px" }}>
+                    <MechanismPreview mechanism={activeMechanism} />
                   </div>
                 )}
               </div>
             </div>
 
-            {/* Right Column: Side-by-Side Grübler Mobility Calculator & Kinematic Animation */}
+            {/* Right Column: Side-by-Side Grübler Mobility Calculator & Animation/Simulation Details */}
             <div style={{ minWidth: 320, maxWidth: "100%", display: "flex", flexDirection: "column", gap: 20 }}>
               <DofCalculatorWidget
                 mechanism={activeMechanism}
-                title="Kinematic Mobility & DOF Analysis"
+                title="Grübler Mobility & DOF Analysis"
               />
 
-              {/* Kinematic Animation Motion Preview */}
-              <div
-                style={{
-                  borderRadius: 18,
-                  overflow: "hidden",
-                  border: "1px solid rgba(255, 255, 255, 0.12)",
-                  background: "rgba(10, 16, 28, 0.9)",
-                  boxShadow: "0 10px 30px rgba(0, 0, 0, 0.45)",
-                  display: "flex",
-                  flexDirection: "column",
-                }}
-              >
+              {htmlUrl ? (
+                /* Kinematic Animation Motion Preview (shown when HTML simulation is active on the left) */
                 <div
                   style={{
+                    borderRadius: 18,
+                    overflow: "hidden",
+                    border: "1px solid rgba(255, 255, 255, 0.12)",
+                    background: "rgba(10, 16, 28, 0.9)",
+                    boxShadow: "0 10px 30px rgba(0, 0, 0, 0.45)",
                     display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    padding: "12px 18px",
-                    background: "rgba(15, 23, 42, 0.9)",
-                    borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
-                    gap: 10,
+                    flexDirection: "column",
                   }}
                 >
-                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <span style={{ fontSize: "1.2rem" }}>⚙️</span>
-                    <div>
-                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                        <strong style={{ color: "#f8fafc", fontSize: "0.95rem" }}>
-                          Kinematic Animation
-                        </strong>
-                        <span
-                          style={{
-                            fontSize: "0.68rem",
-                            padding: "2px 8px",
-                            borderRadius: "999px",
-                            background: "rgba(168, 85, 247, 0.15)",
-                            color: "#c084fc",
-                            border: "1px solid rgba(168, 85, 247, 0.35)",
-                            fontWeight: 700,
-                            fontFamily: "var(--font-mono, monospace)",
-                          }}
-                        >
-                          MOTION MODEL
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      padding: "12px 18px",
+                      background: "rgba(15, 23, 42, 0.9)",
+                      borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
+                      gap: 10,
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <span style={{ fontSize: "1.2rem" }}>⚙️</span>
+                      <div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <strong style={{ color: "#f8fafc", fontSize: "0.95rem" }}>
+                            Kinematic Motion Model
+                          </strong>
+                          <span
+                            style={{
+                              fontSize: "0.68rem",
+                              padding: "2px 8px",
+                              borderRadius: "999px",
+                              background: "rgba(168, 85, 247, 0.15)",
+                              color: "#c084fc",
+                              border: "1px solid rgba(168, 85, 247, 0.35)",
+                              fontWeight: 700,
+                              fontFamily: "var(--font-mono, monospace)",
+                            }}
+                          >
+                            MOTION MODEL
+                          </span>
+                        </div>
+                        <span style={{ fontSize: "0.74rem", color: "var(--muted, #94a3b8)" }}>
+                          Linkage motion &amp; joint path simulation
                         </span>
                       </div>
-                      <span style={{ fontSize: "0.74rem", color: "var(--muted, #94a3b8)" }}>
-                        Linkage motion &amp; joint path simulation
-                      </span>
                     </div>
                   </div>
-                </div>
 
-                <div style={{ minHeight: "360px", flex: 1, position: "relative" }}>
-                  <MechanismPreview mechanism={activeMechanism} />
+                  <div style={{ minHeight: "360px", flex: 1, position: "relative" }}>
+                    <MechanismPreview mechanism={activeMechanism} />
+                  </div>
                 </div>
-              </div>
+              ) : (
+                /* Student Virtual Lab Invitation Card (shown when no HTML file attached) */
+                <div
+                  style={{
+                    padding: "24px 20px",
+                    borderRadius: 18,
+                    background: "rgba(11, 16, 28, 0.75)",
+                    border: "1px solid rgba(56, 189, 248, 0.25)",
+                    boxShadow: "0 8px 24px rgba(0, 0, 0, 0.35)",
+                    textAlign: "center",
+                  }}
+                >
+                  <span style={{ fontSize: "2.2rem", display: "block", marginBottom: 10 }}>🌀</span>
+                  <h4 style={{ margin: "0 0 8px", color: "#f8fafc", fontSize: "1.05rem" }}>
+                    Student Custom HTML Virtual Lab
+                  </h4>
+                  <p style={{ margin: "0 0 16px", color: "#94a3b8", fontSize: "0.82rem", lineHeight: 1.5 }}>
+                    Students can upload an interactive <code>.html</code> virtual lab or simulation file for this mechanism to run directly beside the Grübler DOF calculator.
+                  </p>
+                  <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "center" }}>
+                    <button
+                      type="button"
+                      className="primary-btn"
+                      style={{ padding: "6px 14px", fontSize: "0.8rem" }}
+                      onClick={() => onNavigate("submit")}
+                    >
+                      ➕ Submit HTML Animation →
+                    </button>
+                    <button
+                      type="button"
+                      className="secondary-btn secondary-btn--small"
+                      style={{ padding: "6px 14px", fontSize: "0.8rem" }}
+                      onClick={() => {
+                        if (activeMechanism?.id) {
+                          window.location.hash = `mechanism/${activeMechanism.id}`;
+                          onNavigate("repository");
+                        }
+                      }}
+                    >
+                      📖 View Full Specs
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 

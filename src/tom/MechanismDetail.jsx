@@ -758,9 +758,9 @@ function OverviewPanel({ mechanism, htmlAnimationUrl, onOpenAnimation }) {
                 window.location.hash = "animations";
               }
             }}
-            title="Open dedicated Student Custom Animation Studio page"
+            title="Open dedicated Animation & DOF Studio page"
           >
-            🖥️ Dedicated Screen ↗
+            ⚡ Open Animation &amp; DOF Page ↗
           </button>
           <button
             type="button"
@@ -774,7 +774,7 @@ function OverviewPanel({ mechanism, htmlAnimationUrl, onOpenAnimation }) {
             }}
             onClick={onOpenAnimation}
           >
-            🧪 Open Studio Tab →
+            🧪 View Animation &amp; DOF Tab →
           </button>
         </div>
       </div>
@@ -854,6 +854,53 @@ function MediaPanel({ items, tab, isAdmin, onDelete, mechanism, htmlAnimationUrl
   if (tab === "Animation") {
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+        {/* Banner with direct action to open dedicated Animation & DOF full page */}
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            padding: "12px 18px",
+            borderRadius: 14,
+            background: "linear-gradient(135deg, rgba(56, 189, 248, 0.12), rgba(168, 85, 247, 0.08))",
+            border: "1px solid rgba(56, 189, 248, 0.3)",
+            flexWrap: "wrap",
+            gap: 12,
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <span style={{ fontSize: "1.4rem" }}>⚙️</span>
+            <div>
+              <strong style={{ color: "#f8fafc", fontSize: "0.92rem", display: "block" }}>
+                Kinematic Animation &amp; Grübler DOF Studio
+              </strong>
+              <span style={{ fontSize: "0.76rem", color: "var(--muted, #94a3b8)" }}>
+                Explore dynamic linkage motion, student custom HTML simulations, and real-time planar degrees of freedom.
+              </span>
+            </div>
+          </div>
+          <button
+            type="button"
+            className="primary-btn"
+            style={{
+              padding: "7px 16px",
+              fontSize: "0.82rem",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+            }}
+            onClick={() => {
+              if (mechanism?.id) {
+                window.location.hash = `animation/${mechanism.id}`;
+              } else {
+                window.location.hash = "animations";
+              }
+            }}
+          >
+            🖥️ Open Animation &amp; DOF Dedicated Page ↗
+          </button>
+        </div>
+
         {/* ── 3-PANEL WORKBENCH: ANIMATION + STUDENT CUSTOM ANIMATION + DOF CALCULATOR ── */}
         <div
           className="tom-workbench-grid"

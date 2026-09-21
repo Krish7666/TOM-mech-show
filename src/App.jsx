@@ -20,6 +20,12 @@ import { version as APP_VERSION } from "../package.json";
 
 const menuCards = [
   {
+    title: "Animation & DOF Studio",
+    copy: "Kinematic motion models, real-time Grübler mobility calculations & student virtual lab simulations.",
+    action: "Animations",
+    badge: "Motion & DOF Studio",
+  },
+  {
     title: "Mechanism Simulator Lab",
     copy: "Interactive four-bar simulator: adjust link lengths and watch how the mechanism moves in real time.",
     action: "VLab",
@@ -59,7 +65,7 @@ function getInitialPage() {
     const hash = window.location.hash.toLowerCase();
     if (hash.startsWith("#repository") || hash.startsWith("#mechanism/")) return "repository";
     if (hash.startsWith("#submit")) return "submit";
-    if (hash.startsWith("#animation") || hash.startsWith("#animations") || hash.startsWith("#student-animation")) return "animations";
+    if (hash.startsWith("#animation") || hash.startsWith("#animations") || hash.startsWith("#student-animation") || hash.startsWith("#dof")) return "animations";
     if (hash.startsWith("#vlab") || hash.startsWith("#lab") || hash.startsWith("#virtual-lab")) return "vlab";
     if (hash.startsWith("#admin")) return localStorage.getItem("tom-admin-session") === "true" ? "admin" : "login";
     if (hash.startsWith("#login")) return "login";
@@ -125,7 +131,7 @@ export default function App() {
         setPage("repository");
       } else if (hash.startsWith("#submit")) {
         setPage("submit");
-      } else if (hash.startsWith("#animation") || hash.startsWith("#animations") || hash.startsWith("#student-animation")) {
+      } else if (hash.startsWith("#animation") || hash.startsWith("#animations") || hash.startsWith("#student-animation") || hash.startsWith("#dof")) {
         setPage("animations");
       } else if (hash.startsWith("#vlab") || hash.startsWith("#lab") || hash.startsWith("#virtual-lab")) {
         setPage("vlab");
@@ -215,6 +221,15 @@ export default function App() {
       desc: "All mechanism models, kinematic simulations & data tables",
       badge: `${mechanisms.length} Models`,
       action: () => navigateTo("repository"),
+    },
+    {
+      id: "animations",
+      page: "animations",
+      icon: "⚙️",
+      title: "Animation & DOF Studio",
+      desc: "Kinematic motion models, Grübler mobility analysis & student simulations",
+      badge: "Motion & DOF",
+      action: () => navigateTo("animations", "#animations"),
     },
     {
       id: "submit",
@@ -447,6 +462,13 @@ export default function App() {
                 <div className="cta-row">
                   <button type="button" className="primary-btn" onClick={() => setIsNavMenuOpen(true)}>
                     Explore Menu ☰
+                  </button>
+                  <button
+                    type="button"
+                    className="secondary-btn secondary-btn--cyan"
+                    onClick={() => navigateTo("animations", "#animations")}
+                  >
+                    ⚙️ Animation &amp; DOF Studio
                   </button>
                   <button
                     type="button"
