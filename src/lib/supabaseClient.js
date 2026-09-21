@@ -4,14 +4,14 @@ import { createClient } from "@supabase/supabase-js";
 const rawUrl =
   import.meta.env.VITE_SUPABASE_URL ||
   import.meta.env.VITE_PUBLIC_SUPABASE_URL ||
-  "";
+  "https://omicqnxpmfbltqrkbfid.supabase.co";
 
 const rawAnon =
   import.meta.env.VITE_SUPABASE_ANON ||
   import.meta.env.VITE_SUPABASE_ANON_KEY ||
   import.meta.env.VITE_SUPABASE_KEY ||
   import.meta.env.VITE_PUBLIC_SUPABASE_ANON_KEY ||
-  "";
+  "sb_publishable_QXTksvwnKp5s3eaXeGCcIw_3-oLJSif";
 
 const SUPABASE_URL = typeof rawUrl === "string" ? rawUrl.trim().replace(/['";]+$/g, "").replace(/^['"]+/g, "") : "";
 const SUPABASE_ANON = typeof rawAnon === "string" ? rawAnon.trim().replace(/['";]+$/g, "").replace(/^['"]+/g, "") : "";
