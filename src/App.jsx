@@ -8,6 +8,7 @@ const LoginPage = lazy(() => import("./pages/LoginPage.jsx"));
 const AdminPage = lazy(() => import("./pages/AdminPage.jsx"));
 const SubmitPage = lazy(() => import("./pages/SubmitPage.jsx"));
 const VLabPage = lazy(() => import("./pages/VLabPage.jsx"));
+const StudentAnimationsPage = lazy(() => import("./pages/StudentAnimationsPage.jsx"));
 const KinematicWorkbench = lazy(() => import("./tom/KinematicWorkbench.jsx"));
 const TomLogo3D = lazy(() => import("./components/TomLogo3D.jsx"));
 import TomLogo from "./components/TomLogo.jsx";
@@ -18,6 +19,12 @@ import { version as APP_VERSION } from "../package.json";
 // ─── CONSTANTS ───────────────────────────────────────────────────────────────
 
 const menuCards = [
+  {
+    title: "Student Custom Animations",
+    copy: "Interactive student-created HTML simulations, virtual mechanisms & live Grübler DOF mobility analysis.",
+    action: "Animations",
+    badge: "Virtual Lab Studio",
+  },
   {
     title: "Mechanism Simulator Lab",
     copy: "Interactive four-bar simulator: adjust link lengths and watch how the mechanism moves in real time.",
@@ -58,6 +65,7 @@ function getInitialPage() {
     const hash = window.location.hash.toLowerCase();
     if (hash.startsWith("#repository") || hash.startsWith("#mechanism/")) return "repository";
     if (hash.startsWith("#submit")) return "submit";
+    if (hash.startsWith("#animation") || hash.startsWith("#animations") || hash.startsWith("#student-animation")) return "animations";
     if (hash.startsWith("#vlab") || hash.startsWith("#lab") || hash.startsWith("#virtual-lab")) return "vlab";
     if (hash.startsWith("#admin")) return localStorage.getItem("tom-admin-session") === "true" ? "admin" : "login";
     if (hash.startsWith("#login")) return "login";
@@ -123,6 +131,8 @@ export default function App() {
         setPage("repository");
       } else if (hash.startsWith("#submit")) {
         setPage("submit");
+      } else if (hash.startsWith("#animation") || hash.startsWith("#animations") || hash.startsWith("#student-animation")) {
+        setPage("animations");
       } else if (hash.startsWith("#vlab") || hash.startsWith("#lab") || hash.startsWith("#virtual-lab")) {
         setPage("vlab");
       } else if (hash.startsWith("#admin")) {
@@ -211,6 +221,15 @@ export default function App() {
       desc: "All mechanism models, kinematic simulations & data tables",
       badge: `${mechanisms.length} Models`,
       action: () => navigateTo("repository"),
+    },
+    {
+      id: "animations",
+      page: "animations",
+      icon: "🌀",
+      title: "Student Custom Animations",
+      desc: "Interactive HTML simulations & live Grübler DOF mobility analysis",
+      badge: "Virtual Lab",
+      action: () => navigateTo("animations", "#animations"),
     },
     {
       id: "submit",
@@ -447,6 +466,13 @@ export default function App() {
                   <button
                     type="button"
                     className="secondary-btn secondary-btn--cyan"
+                    onClick={() => navigateTo("animations", "#animations")}
+                  >
+                    🌀 Student Custom Animations
+                  </button>
+                  <button
+                    type="button"
+                    className="secondary-btn secondary-btn--cyan"
                     onClick={() => navigateTo("vlab", "#vlab")}
                   >
                     🔬 Four-Bar Virtual Lab
@@ -507,6 +533,7 @@ export default function App() {
                     type="button"
                     className="secondary-btn"
                     onClick={() => {
+                      if (card.action === "Animations") navigateTo("animations", "#animations");
                       if (card.action === "VLab") navigateTo("vlab", "#vlab");
                       if (card.action === "Repository" || card.action === "Models") navigateTo("repository");
                       if (card.action === "Login") navigateTo(isAdminLoggedIn ? "admin" : "login");
@@ -519,6 +546,11 @@ export default function App() {
               ))}
             </section>
           </>
+        )}
+
+        {/* STUDENT CUSTOM ANIMATIONS */}
+        {page === "animations" && (
+          <StudentAnimationsPage onNavigate={navigateTo} />
         )}
 
         {/* SUBMIT */}

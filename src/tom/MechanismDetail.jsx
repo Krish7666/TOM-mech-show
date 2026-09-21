@@ -545,6 +545,26 @@ function HtmlVirtualLabViewer({ htmlUrl, mechanism, onReload, reloadKey }) {
           >
             {isFullscreen ? "⤓ Exit Fullscreen" : "⛶ Fullscreen Lab"}
           </button>
+          <button
+            type="button"
+            className="secondary-btn secondary-btn--small"
+            style={{
+              padding: "5px 12px",
+              fontSize: "0.76rem",
+              borderColor: "rgba(168, 85, 247, 0.4)",
+              color: "#c084fc",
+            }}
+            onClick={() => {
+              if (mechanism?.id) {
+                window.location.hash = `animation/${mechanism.id}`;
+              } else {
+                window.location.hash = "animations";
+              }
+            }}
+            title="Open dedicated Student Custom Animation Studio page"
+          >
+            🌀 Studio Page ↗
+          </button>
           <a
             href={isSafeUrl(htmlUrl) ? htmlUrl : "#"}
             target="_blank"
@@ -630,20 +650,42 @@ function OverviewPanel({ mechanism, htmlAnimationUrl, onOpenAnimation }) {
           </div>
         </div>
 
-        <button
-          type="button"
-          className="primary-btn"
-          style={{
-            padding: "8px 18px",
-            fontSize: "0.84rem",
-            display: "inline-flex",
-            alignItems: "center",
-            gap: "6px",
-          }}
-          onClick={onOpenAnimation}
-        >
-          {htmlAnimationUrl ? "🔬 Open Virtual Lab →" : "🌀 View Animation & DOF →"}
-        </button>
+        <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+          <button
+            type="button"
+            className="secondary-btn secondary-btn--small"
+            style={{
+              padding: "7px 14px",
+              fontSize: "0.82rem",
+              borderColor: "rgba(168, 85, 247, 0.4)",
+              color: "#c084fc",
+            }}
+            onClick={() => {
+              if (mechanism?.id) {
+                window.location.hash = `animation/${mechanism.id}`;
+              } else {
+                window.location.hash = "animations";
+              }
+            }}
+            title="Open dedicated Student Custom Animation Studio page"
+          >
+            🌀 Studio Page ↗
+          </button>
+          <button
+            type="button"
+            className="primary-btn"
+            style={{
+              padding: "8px 18px",
+              fontSize: "0.84rem",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "6px",
+            }}
+            onClick={onOpenAnimation}
+          >
+            {htmlAnimationUrl ? "🔬 Open Virtual Lab Tab →" : "🌀 View Animation Tab →"}
+          </button>
+        </div>
       </div>
 
       {cover && (
