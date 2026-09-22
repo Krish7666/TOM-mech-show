@@ -29,7 +29,7 @@ export default function VLabPage({ onNavigate }) {
             className="secondary-btn secondary-btn--small"
             onClick={() => onNavigate("repository")}
           >
-            Cloud Repository →
+            Explore Mechanisms →
           </button>
           <span className="submit-page-badge">
             🔬 Theory of Machines Virtual Lab · SPPU Mechanical Engineering

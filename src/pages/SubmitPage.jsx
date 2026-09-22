@@ -20,7 +20,7 @@ export default function SubmitPage({ onNavigate, showToast }) {
           className="back-btn"
           onClick={() => onNavigate("repository")}
         >
-          ← Back to Cloud Repository
+          ← Back to Explore Mechanisms
         </button>
         <span className="submit-page-badge">
           🏛 NMIET · Department of Mechanical Engineering

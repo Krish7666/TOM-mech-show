@@ -26,7 +26,7 @@ const menuCards = [
     badge: "Interactive Lab",
   },
   {
-    title: "Mechanism Repository",
+    title: "Explore Mechanisms",
     copy: "Explore working mechanisms, student projects, photos, videos, and motion models.",
     action: "Repository",
     badge: "Showcase",
@@ -211,7 +211,7 @@ export default function App() {
       id: "repository",
       page: "repository",
       icon: "🗄️",
-      title: "Cloud Repository",
+      title: "Explore Mechanisms",
       desc: "All mechanism models, kinematic simulations & data tables",
       badge: `${mechanisms.length} Models`,
       action: () => navigateTo("repository"),
@@ -464,7 +464,7 @@ export default function App() {
                     className="secondary-btn secondary-btn--purple"
                     onClick={() => navigateTo("repository")}
                   >
-                    📚 Cloud Repository
+                    📚 Explore Mechanisms
                   </button>
                   <button
                     type="button"
