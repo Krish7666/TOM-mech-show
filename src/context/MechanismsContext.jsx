@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
-import { fetchApprovedMechanisms, fetchPendingMechanisms } from "../tom/tomApi.js";
+import { fetchApprovedMechanisms, fetchPendingMechanisms, syncLocalMechanismsToSupabase } from "../tom/tomApi.js";
 import { normalizeMechanism, normalizeMechanisms } from "../tom/mechanismUtils.js";
 
 const MechanismsContext = createContext(null);
@@ -7,7 +7,7 @@ const MechanismsContext = createContext(null);
 /**
  * Single source-of-truth for mechanisms data.
  * Fetches once on mount; children consume via useMechanisms().
- * Eliminates duplicate parallel Supabase requests from child components.
+ * Automatically syncs any unsynced local drafts to Supabase when connected.
  */
 export function MechanismsProvider({ children }) {
   const [mechanisms, setMechanisms] = useState(() => normalizeMechanisms([]));
@@ -16,6 +16,8 @@ export function MechanismsProvider({ children }) {
 
   const refreshData = useCallback(async () => {
     try {
+      // Opportunistically sync any local items to Supabase
+      await syncLocalMechanismsToSupabase().catch(() => {});
       const [appRes, pendRes] = await Promise.all([
         fetchApprovedMechanisms(),
         fetchPendingMechanisms(),
@@ -29,16 +31,23 @@ export function MechanismsProvider({ children }) {
 
   useEffect(() => {
     let active = true;
-    Promise.all([fetchApprovedMechanisms(), fetchPendingMechanisms()])
-      .then(([appRes, pendRes]) => {
-        if (!active) return;
-        if (appRes?.data) setMechanisms(normalizeMechanisms(appRes.data));
-        if (pendRes?.data) setPendingMechanisms(pendRes.data.map(normalizeMechanism));
-        setLoading(false);
-      })
-      .catch(() => {
-        if (active) setLoading(false);
-      });
+    (async () => {
+      try {
+        await syncLocalMechanismsToSupabase().catch(() => {});
+      } catch {
+        // ignore
+      }
+      Promise.all([fetchApprovedMechanisms(), fetchPendingMechanisms()])
+        .then(([appRes, pendRes]) => {
+          if (!active) return;
+          if (appRes?.data) setMechanisms(normalizeMechanisms(appRes.data));
+          if (pendRes?.data) setPendingMechanisms(pendRes.data.map(normalizeMechanism));
+          setLoading(false);
+        })
+        .catch(() => {
+          if (active) setLoading(false);
+        });
+    })();
     return () => {
       active = false;
     };

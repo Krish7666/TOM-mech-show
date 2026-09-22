@@ -1,8 +1,8 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef, lazy, Suspense } from "react";
 import { useMechanisms } from "../context/MechanismsContext.jsx";
-import DofCalculatorWidget from "../tom/DofCalculatorWidget.jsx";
-import MechanismPreview from "../tom/MechanismPreview.jsx";
 import { tomCategoryMeta } from "../tom/tomConstants.js";
+
+const Mechanism3DViewer = lazy(() => import("../tom/Mechanism3DViewer.jsx"));
 
 function isSafeUrl(rawUrl) {
   if (!rawUrl || typeof rawUrl !== "string") return false;
@@ -45,29 +45,32 @@ function openHtmlInNewTab(url) {
 }
 
 /**
- * Dedicated Full-Page View for Student Custom Animations & Virtual Labs.
- * Features expansive HTML simulation viewport and live side-by-side Grübler DOF Calculator.
+ * Focused, Clean Student Mechanism Showcase.
+ * Strictly displays student-uploaded assets: interactive HTML animations and 3D CAD files.
+ * Clutter, synthetic 2D canvases, and promotional sidebars have been removed.
  */
 export default function StudentAnimationsPage({ onNavigate, initialMechanismId }) {
   const { mechanisms } = useMechanisms();
   const [selectedId, setSelectedId] = useState(initialMechanismId || null);
   const [reloadKey, setReloadKey] = useState(0);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [activeMediaMode, setActiveMediaMode] = useState("auto"); // "html" | "cad" | "auto"
   const containerRef = useRef(null);
 
-  // Filter mechanisms that have a student HTML animation or custom animation
-  const mechanismsWithAnim = useMemo(() => {
-    return mechanisms.filter(
-      (m) =>
-        (m.html_animation_url && isSafeUrl(m.html_animation_url)) ||
+  // Filter mechanisms that have student-uploaded HTML animation or CAD models
+  const mechanismsWithUploads = useMemo(() => {
+    return mechanisms.filter((m) => {
+      const hasHtml = (m.html_animation_url && isSafeUrl(m.html_animation_url)) ||
         (m.animation_url && isSafeUrl(m.animation_url)) ||
-        (Array.isArray(m.media) && m.media.some((row) => (row.file_type === "animation" || row.format === "html") && isSafeUrl(row.file_url)))
-    );
+        (Array.isArray(m.media) && m.media.some((row) => (row.file_type === "animation" || row.format === "html") && isSafeUrl(row.file_url)));
+      const hasCad = (m.cad_model_url && isSafeUrl(m.cad_model_url)) ||
+        (Array.isArray(m.media) && m.media.some((row) => (row.file_type === "cad" || /\.(stl|gltf|glb|obj)$/i.test(row.file_name || row.file_url || "")) && isSafeUrl(row.file_url)));
+      return hasHtml || hasCad;
+    });
   }, [mechanisms]);
 
   // Set default selected mechanism
   useEffect(() => {
-    // If URL hash has an ID, e.g. #animation/<id>
     const hash = window.location.hash.replace(/^#\/?/, "");
     if (hash.startsWith("animation/") || hash.startsWith("animations/")) {
       const id = hash.split("/")[1];
@@ -76,12 +79,12 @@ export default function StudentAnimationsPage({ onNavigate, initialMechanismId }
         return;
       }
     }
-    if (!selectedId && mechanismsWithAnim.length > 0) {
-      setSelectedId(mechanismsWithAnim[0].id);
+    if (!selectedId && mechanismsWithUploads.length > 0) {
+      setSelectedId(mechanismsWithUploads[0].id);
     } else if (!selectedId && mechanisms.length > 0) {
       setSelectedId(mechanisms[0].id);
     }
-  }, [mechanismsWithAnim, mechanisms, selectedId]);
+  }, [mechanismsWithUploads, mechanisms, selectedId]);
 
   // Listen to hash changes while on this page
   useEffect(() => {
@@ -106,9 +109,15 @@ export default function StudentAnimationsPage({ onNavigate, initialMechanismId }
   }, []);
 
   const activeMechanism = useMemo(() => {
-    return mechanisms.find((m) => String(m.id) === String(selectedId)) || mechanismsWithAnim[0] || mechanisms[0] || null;
-  }, [mechanisms, selectedId, mechanismsWithAnim]);
+    return (
+      mechanisms.find((m) => String(m.id) === String(selectedId)) ||
+      mechanismsWithUploads[0] ||
+      mechanisms[0] ||
+      null
+    );
+  }, [mechanisms, selectedId, mechanismsWithUploads]);
 
+  // Extract student HTML animation URL
   const htmlUrl = useMemo(() => {
     if (!activeMechanism) return null;
     if (activeMechanism.html_animation_url && isSafeUrl(activeMechanism.html_animation_url)) {
@@ -123,6 +132,31 @@ export default function StudentAnimationsPage({ onNavigate, initialMechanismId }
     if (mediaHtml) return mediaHtml.file_url.trim();
     return null;
   }, [activeMechanism]);
+
+  // Extract student CAD model URL
+  const cadUrl = useMemo(() => {
+    if (!activeMechanism) return null;
+    if (activeMechanism.cad_model_url && isSafeUrl(activeMechanism.cad_model_url)) {
+      return activeMechanism.cad_model_url.trim();
+    }
+    const cadMedia = activeMechanism.media?.find(
+      (m) =>
+        (m.file_type === "cad" ||
+          /\.(stl|gltf|glb|obj)$/i.test(m.file_name || m.file_url || "")) &&
+        isSafeUrl(m.file_url)
+    );
+    if (cadMedia) return cadMedia.file_url.trim();
+    return null;
+  }, [activeMechanism]);
+
+  // Determine current display mode
+  const currentMode = useMemo(() => {
+    if (activeMediaMode === "html" && htmlUrl) return "html";
+    if (activeMediaMode === "cad" && cadUrl) return "cad";
+    if (htmlUrl) return "html";
+    if (cadUrl) return "cad";
+    return "none";
+  }, [activeMediaMode, htmlUrl, cadUrl]);
 
   function handleToggleFullscreen() {
     if (!containerRef.current) return;
@@ -140,6 +174,7 @@ export default function StudentAnimationsPage({ onNavigate, initialMechanismId }
   function handleSelect(id) {
     setSelectedId(id);
     setReloadKey(0);
+    setActiveMediaMode("auto");
     window.location.hash = `animation/${id}`;
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
@@ -151,7 +186,7 @@ export default function StudentAnimationsPage({ onNavigate, initialMechanismId }
       className="student-animations-page"
       style={{
         width: "100%",
-        maxWidth: 1400,
+        maxWidth: 1300,
         margin: "0 auto",
         padding: "0 16px 60px",
       }}
@@ -175,66 +210,13 @@ export default function StudentAnimationsPage({ onNavigate, initialMechanismId }
           ← Back to Repository
         </button>
 
-        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-          <button
-            type="button"
-            className="secondary-btn secondary-btn--small"
-            onClick={() => onNavigate("vlab", "#vlab")}
-          >
-            🔬 4-Bar Virtual Lab →
-          </button>
-          <span className="submit-page-badge" style={{ borderColor: "rgba(56, 189, 248, 0.4)", color: "#38bdf8" }}>
-            ⚙️ Kinematic Animation &amp; Grübler DOF Studio
-          </span>
-        </div>
-      </div>
-
-      {/* Page Header */}
-      <div style={{ marginBottom: 24 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
-          <span style={{ fontSize: "1.6rem" }}>⚙️</span>
-          <h1
-            style={{
-              fontSize: "clamp(1.5rem, 3.5vw, 2.2rem)",
-              fontWeight: 800,
-              color: "#f8fafc",
-              margin: 0,
-              letterSpacing: "-0.02em",
-            }}
-          >
-            Kinematic Animation &amp; <span style={{ color: "#38bdf8" }}>DOF Studio</span>
-          </h1>
-        </div>
-        <p style={{ color: "var(--muted, #94a3b8)", fontSize: "0.95rem", maxWidth: 840, margin: 0, lineHeight: 1.5 }}>
-          Dedicated virtual lab environment for live kinematic movement animations, real-time Grübler degrees of freedom mobility calculations, and student HTML interactive simulations.
-        </p>
-      </div>
-
-      {/* Empty state when no mechanisms exist */}
-      {mechanisms.length === 0 && (
-        <div
-          style={{
-            textAlign: "center",
-            padding: "80px 24px",
-            borderRadius: 20,
-            background: "rgba(11, 16, 28, 0.6)",
-            border: "1px solid rgba(255, 255, 255, 0.06)",
-          }}
+        <span
+          className="submit-page-badge"
+          style={{ borderColor: "rgba(56, 189, 248, 0.4)", color: "#38bdf8" }}
         >
-          <span style={{ fontSize: "3rem", display: "block", marginBottom: 16 }}>📭</span>
-          <h3 style={{ color: "#f8fafc", margin: "0 0 8px" }}>No Mechanisms Submitted Yet</h3>
-          <p style={{ color: "#94a3b8", margin: "0 0 20px", maxWidth: 400, marginInline: "auto", lineHeight: 1.5 }}>
-            Be the first to share your kinematic mechanism project! Submit your working model with photos, videos, and an interactive HTML animation.
-          </p>
-          <button
-            type="button"
-            className="primary-btn"
-            onClick={() => onNavigate("submit")}
-          >
-            ➕ Submit a Mechanism →
-          </button>
-        </div>
-      )}
+          🏛 NMIET Mechanical Engineering · Student Works
+        </span>
+      </div>
 
       {/* Mechanism Selector Tabs / Pills */}
       {mechanisms.length > 1 && (
@@ -244,14 +226,21 @@ export default function StudentAnimationsPage({ onNavigate, initialMechanismId }
             gap: 8,
             overflowX: "auto",
             paddingBottom: 12,
-            marginBottom: 24,
+            marginBottom: 20,
             scrollbarWidth: "thin",
           }}
         >
           {mechanisms.map((m) => {
-            const hasHtml =
+            const hasUpload =
               m.html_animation_url ||
-              (m.animation_url && m.animation_url.toLowerCase().includes(".html"));
+              m.animation_url ||
+              m.cad_model_url ||
+              (Array.isArray(m.media) &&
+                m.media.some((row) =>
+                  row.file_type === "animation" ||
+                  row.file_type === "cad" ||
+                  row.format === "html"
+                ));
             const isSelected = String(m.id) === String(selectedId);
             const mMeta = tomCategoryMeta(m.category);
 
@@ -278,12 +267,14 @@ export default function StudentAnimationsPage({ onNavigate, initialMechanismId }
                   alignItems: "center",
                   gap: "6px",
                   transition: "all 0.2s ease",
-                  boxShadow: isSelected ? "0 4px 16px rgba(56, 189, 248, 0.2)" : "none",
+                  boxShadow: isSelected
+                    ? "0 4px 16px rgba(56, 189, 248, 0.2)"
+                    : "none",
                 }}
               >
                 <span>{mMeta?.icon || "⚙️"}</span>
                 <span>{m.name}</span>
-                {hasHtml && (
+                {hasUpload && (
                   <span
                     style={{
                       fontSize: "0.65rem",
@@ -294,7 +285,7 @@ export default function StudentAnimationsPage({ onNavigate, initialMechanismId }
                       fontWeight: 700,
                     }}
                   >
-                    HTML
+                    FILE
                   </span>
                 )}
               </button>
@@ -303,327 +294,392 @@ export default function StudentAnimationsPage({ onNavigate, initialMechanismId }
         </div>
       )}
 
-      {/* Main Side-by-Side Studio Workbench */}
+      {/* Empty State */}
+      {mechanisms.length === 0 && (
+        <div
+          style={{
+            textAlign: "center",
+            padding: "80px 24px",
+            borderRadius: 20,
+            background: "rgba(11, 16, 28, 0.6)",
+            border: "1px solid rgba(255, 255, 255, 0.06)",
+          }}
+        >
+          <span style={{ fontSize: "3rem", display: "block", marginBottom: 16 }}>
+            📭
+          </span>
+          <h3 style={{ color: "#f8fafc", margin: "0 0 8px" }}>
+            No Mechanisms Submitted Yet
+          </h3>
+          <p
+            style={{
+              color: "#94a3b8",
+              margin: "0 0 20px",
+              maxWidth: 400,
+              marginInline: "auto",
+              lineHeight: 1.5,
+            }}
+          >
+            Submit your kinematic mechanism project with your custom HTML animation or 3D CAD model.
+          </p>
+          <button
+            type="button"
+            className="primary-btn"
+            onClick={() => onNavigate("submit")}
+          >
+            ➕ Submit a Mechanism →
+          </button>
+        </div>
+      )}
+
+      {/* Main Single-Stage Viewer (Zero Clutter) */}
       {activeMechanism && (
-        <>
+        <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+          {/* Mechanism Title & Uploader Header */}
           <div
             style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(360px, 1fr))",
-              gap: 22,
-              alignItems: "stretch",
-              marginBottom: 30,
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "flex-end",
+              flexWrap: "wrap",
+              gap: 12,
+              paddingBottom: 4,
             }}
           >
-            {/* Left: Expansive Virtual Lab Simulation Viewer */}
-            <div
-              ref={containerRef}
-              style={{
-                minWidth: 0,
-                display: "flex",
-                flexDirection: "column",
-                borderRadius: isFullscreen ? 0 : 18,
-                overflow: "hidden",
-                border: isFullscreen ? "none" : "1px solid rgba(56, 189, 248, 0.4)",
-                background: "linear-gradient(135deg, rgba(10, 16, 28, 0.95), rgba(7, 10, 18, 0.98))",
-                boxShadow: isFullscreen ? "none" : "0 14px 40px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(56, 189, 248, 0.2)",
-                height: isFullscreen ? "100vh" : "100%",
-                minHeight: isFullscreen ? "100vh" : "620px",
-              }}
-            >
-              {/* Virtual Lab Header Bar */}
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  padding: "12px 18px",
-                  background: "rgba(10, 16, 28, 0.92)",
-                  borderBottom: "1px solid rgba(56, 189, 248, 0.25)",
-                  flexWrap: "wrap",
-                  gap: 10,
-                }}
-              >
-                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <span style={{ fontSize: "1.3rem" }}>{htmlUrl ? "🌀" : "⚙️"}</span>
-                  <div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <strong style={{ color: "#f8fafc", fontSize: "0.98rem" }}>
-                        {htmlUrl ? "Student Custom HTML Animation" : "Kinematic Motion Animation"}
-                      </strong>
-                      <span
-                        style={{
-                          fontSize: "0.68rem",
-                          padding: "2px 8px",
-                          borderRadius: "999px",
-                          background: htmlUrl ? "rgba(56, 189, 248, 0.15)" : "rgba(168, 85, 247, 0.15)",
-                          color: htmlUrl ? "#38bdf8" : "#c084fc",
-                          border: `1px solid ${htmlUrl ? "rgba(56, 189, 248, 0.35)" : "rgba(168, 85, 247, 0.35)"}`,
-                          fontWeight: 700,
-                          fontFamily: "var(--font-mono, monospace)",
-                        }}
-                      >
-                        {htmlUrl ? "HTML VIRTUAL LAB" : "MOTION MODEL"}
-                      </span>
-                    </div>
-                    <span style={{ fontSize: "0.76rem", color: "var(--muted, #94a3b8)" }}>
-                      {activeMechanism.name} · {activeMechanism.student_name ? `Contributed by ${activeMechanism.student_name}` : "Kinematic Mechanism"} ({activeMechanism.college || "NMIET Mechanical"})
-                    </span>
-                  </div>
-                </div>
-
-                <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                  {htmlUrl && (
-                    <button
-                      type="button"
-                      className="secondary-btn secondary-btn--small"
-                      style={{ padding: "5px 12px", fontSize: "0.76rem" }}
-                      onClick={() => setReloadKey((k) => k + 1)}
-                      title="Restart Animation"
-                    >
-                      🔄 Reload
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    className="secondary-btn secondary-btn--small"
-                    style={{
-                      padding: "5px 12px",
-                      fontSize: "0.76rem",
-                      borderColor: "rgba(56, 189, 248, 0.4)",
-                      color: "#38bdf8",
-                    }}
-                    onClick={handleToggleFullscreen}
-                    title="Toggle full screen laboratory view"
-                  >
-                    {isFullscreen ? "⤓ Exit Fullscreen" : "⛶ Fullscreen Lab"}
-                  </button>
-                  {htmlUrl && isSafeUrl(htmlUrl) && (
-                    <button
-                      type="button"
-                      className="primary-btn"
-                      style={{
-                        padding: "5px 14px",
-                        fontSize: "0.76rem",
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: 4,
-                        cursor: "pointer",
-                      }}
-                      onClick={() => openHtmlInNewTab(htmlUrl)}
-                      title="Open simulation in a new browser tab"
-                    >
-                      Open in Tab ↗
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {/* Viewport: Either Full HTML simulation or Canvas simulation */}
-              <div
-                style={{
-                  width: "100%",
-                  flex: 1,
-                  minHeight: isFullscreen ? "calc(100vh - 58px)" : "540px",
-                  height: isFullscreen ? "calc(100vh - 58px)" : "600px",
-                  background: "#050811",
-                  position: "relative",
-                  display: "flex",
-                  flexDirection: "column",
-                }}
-              >
-                {htmlUrl ? (
-                  <iframe
-                    key={reloadKey}
-                    src={htmlUrl}
-                    title={`${activeMechanism.name} Student Custom Animation`}
-                    sandbox="allow-scripts allow-popups allow-forms allow-same-origin"
-                    style={{ width: "100%", height: "100%", flex: 1, border: 0, display: "block" }}
-                    allow="accelerometer; autoplay; encrypted-media; gyroscope"
-                  />
-                ) : (
-                  <div style={{ width: "100%", height: "100%", position: "relative", flex: 1, minHeight: "520px" }}>
-                    <MechanismPreview mechanism={activeMechanism} />
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Right Column: Side-by-Side Grübler Mobility Calculator & Animation/Simulation Details */}
-            <div style={{ minWidth: 320, maxWidth: "100%", display: "flex", flexDirection: "column", gap: 20 }}>
-              <DofCalculatorWidget
-                mechanism={activeMechanism}
-                title="Grübler Mobility & DOF Analysis"
-              />
-
-              {htmlUrl ? (
-                /* Kinematic Animation Motion Preview (shown when HTML simulation is active on the left) */
-                <div
-                  style={{
-                    borderRadius: 18,
-                    overflow: "hidden",
-                    border: "1px solid rgba(255, 255, 255, 0.12)",
-                    background: "rgba(10, 16, 28, 0.9)",
-                    boxShadow: "0 10px 30px rgba(0, 0, 0, 0.45)",
-                    display: "flex",
-                    flexDirection: "column",
-                  }}
-                >
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      padding: "12px 18px",
-                      background: "rgba(15, 23, 42, 0.9)",
-                      borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
-                      gap: 10,
-                    }}
-                  >
-                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                      <span style={{ fontSize: "1.2rem" }}>⚙️</span>
-                      <div>
-                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                          <strong style={{ color: "#f8fafc", fontSize: "0.95rem" }}>
-                            Kinematic Motion Model
-                          </strong>
-                          <span
-                            style={{
-                              fontSize: "0.68rem",
-                              padding: "2px 8px",
-                              borderRadius: "999px",
-                              background: "rgba(168, 85, 247, 0.15)",
-                              color: "#c084fc",
-                              border: "1px solid rgba(168, 85, 247, 0.35)",
-                              fontWeight: 700,
-                              fontFamily: "var(--font-mono, monospace)",
-                            }}
-                          >
-                            MOTION MODEL
-                          </span>
-                        </div>
-                        <span style={{ fontSize: "0.74rem", color: "var(--muted, #94a3b8)" }}>
-                          Linkage motion &amp; joint path simulation
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div style={{ minHeight: "360px", flex: 1, position: "relative" }}>
-                    <MechanismPreview mechanism={activeMechanism} />
-                  </div>
-                </div>
-              ) : (
-                /* Student Virtual Lab Invitation Card (shown when no HTML file attached) */
-                <div
-                  style={{
-                    padding: "24px 20px",
-                    borderRadius: 18,
-                    background: "rgba(11, 16, 28, 0.75)",
-                    border: "1px solid rgba(56, 189, 248, 0.25)",
-                    boxShadow: "0 8px 24px rgba(0, 0, 0, 0.35)",
-                    textAlign: "center",
-                  }}
-                >
-                  <span style={{ fontSize: "2.2rem", display: "block", marginBottom: 10 }}>🌀</span>
-                  <h4 style={{ margin: "0 0 8px", color: "#f8fafc", fontSize: "1.05rem" }}>
-                    Student Custom HTML Virtual Lab
-                  </h4>
-                  <p style={{ margin: "0 0 16px", color: "#94a3b8", fontSize: "0.82rem", lineHeight: 1.5 }}>
-                    Students can upload an interactive <code>.html</code> virtual lab or simulation file for this mechanism to run directly beside the Grübler DOF calculator.
-                  </p>
-                  <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "center" }}>
-                    <button
-                      type="button"
-                      className="primary-btn"
-                      style={{ padding: "6px 14px", fontSize: "0.8rem" }}
-                      onClick={() => onNavigate("submit")}
-                    >
-                      ➕ Submit HTML Animation →
-                    </button>
-                    <button
-                      type="button"
-                      className="secondary-btn secondary-btn--small"
-                      style={{ padding: "6px 14px", fontSize: "0.8rem" }}
-                      onClick={() => {
-                        if (activeMechanism?.id) {
-                          window.location.hash = `mechanism/${activeMechanism.id}`;
-                          onNavigate("repository");
-                        }
-                      }}
-                    >
-                      📖 View Full Specs
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Detailed Technical Specs & Student Attribution */}
-          <div
-            style={{
-              padding: "22px 24px",
-              background: "rgba(11, 16, 28, 0.7)",
-              border: "1px solid rgba(255, 255, 255, 0.08)",
-              borderRadius: "18px",
-            }}
-          >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 14, marginBottom: 16 }}>
-              <div>
+            <div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
                 <span
                   style={{
-                    fontSize: "0.72rem",
+                    fontSize: "0.74rem",
                     fontWeight: 700,
                     textTransform: "uppercase",
                     letterSpacing: "0.06em",
                     color: meta?.color || "#38bdf8",
                   }}
                 >
-                  {activeMechanism.category || "Kinematic Mechanism"}
+                  {meta?.icon} {activeMechanism.category || "Kinematic Mechanism"}
                 </span>
-                <h3 style={{ margin: "4px 0 6px", fontSize: "1.3rem", color: "#f8fafc" }}>
-                  {activeMechanism.name}
-                </h3>
-                <p style={{ margin: 0, color: "var(--muted, #94a3b8)", fontSize: "0.85rem" }}>
-                  Uploaded by <strong style={{ color: "#e2e8f0" }}>{activeMechanism.student_name || "Unknown Student"}</strong>
-                  {activeMechanism.team_members && ` (Team: ${activeMechanism.team_members})`}
-                  {` · ${activeMechanism.department || "Mechanical Engineering"} · ${activeMechanism.college || "NMIET"}`}
-                </p>
+                <span style={{ color: "rgba(255,255,255,0.3)" }}>·</span>
+                <span style={{ fontSize: "0.78rem", color: "var(--muted, #94a3b8)" }}>
+                  Uploaded by <strong style={{ color: "#e2e8f0" }}>{activeMechanism.student_name || "Unknown"}</strong>
+                </span>
               </div>
+              <h1
+                style={{
+                  fontSize: "clamp(1.4rem, 3vw, 2rem)",
+                  fontWeight: 800,
+                  color: "#f8fafc",
+                  margin: 0,
+                  letterSpacing: "-0.02em",
+                }}
+              >
+                {activeMechanism.name}
+              </h1>
+            </div>
+
+            {/* Toggle Between Uploaded HTML & CAD (if both present) */}
+            <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+              {htmlUrl && cadUrl && (
+                <div
+                  style={{
+                    display: "flex",
+                    background: "rgba(255,255,255,0.06)",
+                    borderRadius: 10,
+                    padding: 3,
+                    gap: 3,
+                  }}
+                >
+                  <button
+                    type="button"
+                    style={{
+                      padding: "5px 12px",
+                      borderRadius: 8,
+                      border: 0,
+                      background: currentMode === "html" ? "#38bdf8" : "transparent",
+                      color: currentMode === "html" ? "#07070d" : "#94a3b8",
+                      fontWeight: 700,
+                      fontSize: "0.78rem",
+                      cursor: "pointer",
+                    }}
+                    onClick={() => setActiveMediaMode("html")}
+                  >
+                    🌐 HTML Animation
+                  </button>
+                  <button
+                    type="button"
+                    style={{
+                      padding: "5px 12px",
+                      borderRadius: 8,
+                      border: 0,
+                      background: currentMode === "cad" ? "#38bdf8" : "transparent",
+                      color: currentMode === "cad" ? "#07070d" : "#94a3b8",
+                      fontWeight: 700,
+                      fontSize: "0.78rem",
+                      cursor: "pointer",
+                    }}
+                    onClick={() => setActiveMediaMode("cad")}
+                  >
+                    🧩 3D CAD Model
+                  </button>
+                </div>
+              )}
 
               <button
                 type="button"
-                className="secondary-btn"
+                className="secondary-btn secondary-btn--small"
+                style={{ fontSize: "0.8rem", padding: "6px 14px" }}
                 onClick={() => {
                   window.location.hash = `mechanism/${activeMechanism.id}`;
                   onNavigate("repository");
                 }}
-                style={{ fontSize: "0.82rem", padding: "6px 14px" }}
               >
-                View Full Mechanism Specs →
+                View Full Specs →
               </button>
             </div>
-
-            {activeMechanism.working_principle && (
-              <div style={{ marginBottom: 14 }}>
-                <h4 style={{ margin: "0 0 4px", fontSize: "0.92rem", color: "#38bdf8" }}>Working Principle</h4>
-                <p style={{ margin: 0, fontSize: "0.88rem", color: "var(--text, #e2e8f0)", lineHeight: 1.5 }}>
-                  {activeMechanism.working_principle}
-                </p>
-              </div>
-            )}
-
-            {activeMechanism.detailed_description && (
-              <div>
-                <h4 style={{ margin: "0 0 4px", fontSize: "0.92rem", color: "#38bdf8" }}>Description</h4>
-                <p style={{ margin: 0, fontSize: "0.88rem", color: "var(--text, #e2e8f0)", lineHeight: 1.5 }}>
-                  {activeMechanism.detailed_description}
-                </p>
-              </div>
-            )}
           </div>
-        </>
+
+          {/* Full-Width Focused Stage */}
+          <div
+            ref={containerRef}
+            style={{
+              width: "100%",
+              display: "flex",
+              flexDirection: "column",
+              borderRadius: isFullscreen ? 0 : 18,
+              overflow: "hidden",
+              border: isFullscreen ? "none" : "1px solid rgba(56, 189, 248, 0.3)",
+              background: "#050811",
+              boxShadow: isFullscreen
+                ? "none"
+                : "0 16px 48px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(56, 189, 248, 0.15)",
+              minHeight: isFullscreen ? "100vh" : "640px",
+            }}
+          >
+            {/* Stage Controls Top Bar */}
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                padding: "10px 18px",
+                background: "rgba(10, 16, 28, 0.95)",
+                borderBottom: "1px solid rgba(56, 189, 248, 0.2)",
+                flexWrap: "wrap",
+                gap: 10,
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ fontSize: "1.1rem" }}>
+                  {currentMode === "html" ? "🌐" : currentMode === "cad" ? "🧩" : "📁"}
+                </span>
+                <strong style={{ color: "#f8fafc", fontSize: "0.9rem" }}>
+                  {currentMode === "html"
+                    ? "Student HTML Animation"
+                    : currentMode === "cad"
+                    ? "Student 3D CAD Model"
+                    : "Student Media Viewer"}
+                </strong>
+                <span
+                  style={{
+                    fontSize: "0.68rem",
+                    padding: "2px 8px",
+                    borderRadius: "999px",
+                    background: "rgba(56, 189, 248, 0.15)",
+                    color: "#38bdf8",
+                    fontWeight: 700,
+                    fontFamily: "var(--font-mono, monospace)",
+                  }}
+                >
+                  {currentMode === "html" ? "LIVE SIMULATION" : currentMode === "cad" ? "3D INTERACTIVE" : "STANDBY"}
+                </span>
+              </div>
+
+              {/* Action Buttons */}
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                {currentMode === "html" && (
+                  <button
+                    type="button"
+                    className="secondary-btn secondary-btn--small"
+                    style={{ padding: "4px 10px", fontSize: "0.75rem" }}
+                    onClick={() => setReloadKey((k) => k + 1)}
+                    title="Reload animation"
+                  >
+                    🔄 Reload
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  className="secondary-btn secondary-btn--small"
+                  style={{ padding: "4px 10px", fontSize: "0.75rem" }}
+                  onClick={handleToggleFullscreen}
+                  title="Toggle full screen mode"
+                >
+                  {isFullscreen ? "⤓ Exit Fullscreen" : "⛶ Fullscreen"}
+                </button>
+
+                {currentMode === "html" && htmlUrl && isSafeUrl(htmlUrl) && (
+                  <button
+                    type="button"
+                    className="primary-btn"
+                    style={{ padding: "4px 12px", fontSize: "0.75rem" }}
+                    onClick={() => openHtmlInNewTab(htmlUrl)}
+                    title="Open simulation in a new browser tab"
+                  >
+                    Open in Tab ↗
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Stage Body */}
+            <div
+              style={{
+                width: "100%",
+                flex: 1,
+                minHeight: isFullscreen ? "calc(100vh - 54px)" : "580px",
+                position: "relative",
+                display: "flex",
+                flexDirection: "column",
+                background: "#050811",
+              }}
+            >
+              {currentMode === "html" && htmlUrl ? (
+                <iframe
+                  key={reloadKey}
+                  src={htmlUrl}
+                  title={`${activeMechanism.name} Student Animation`}
+                  sandbox="allow-scripts allow-popups allow-forms allow-same-origin"
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    flex: 1,
+                    minHeight: isFullscreen ? "calc(100vh - 54px)" : "580px",
+                    border: 0,
+                    display: "block",
+                  }}
+                  allow="accelerometer; autoplay; encrypted-media; gyroscope"
+                />
+              ) : currentMode === "cad" && cadUrl ? (
+                <div style={{ width: "100%", height: "100%", flex: 1, minHeight: "580px" }}>
+                  <Suspense
+                    fallback={
+                      <div
+                        style={{
+                          height: "100%",
+                          minHeight: "580px",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          color: "#94a3b8",
+                        }}
+                      >
+                        Loading 3D CAD Viewer…
+                      </div>
+                    }
+                  >
+                    <Mechanism3DViewer url={cadUrl} />
+                  </Suspense>
+                </div>
+              ) : (
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    padding: "60px 24px",
+                    height: "100%",
+                    flex: 1,
+                    minHeight: "580px",
+                    textAlign: "center",
+                  }}
+                >
+                  <span style={{ fontSize: "3rem", marginBottom: 16 }}>📁</span>
+                  <h3 style={{ color: "#f8fafc", margin: "0 0 8px", fontSize: "1.2rem" }}>
+                    No HTML Animation or CAD Model Uploaded Yet
+                  </h3>
+                  <p
+                    style={{
+                      color: "#94a3b8",
+                      fontSize: "0.88rem",
+                      maxWidth: 420,
+                      lineHeight: 1.5,
+                      margin: "0 0 20px",
+                    }}
+                  >
+                    {activeMechanism.student_name || "The student"} has not attached an interactive <code>.html</code> file or 3D CAD model (<code>.stl</code>, <code>.gltf</code>) to this project yet.
+                  </p>
+                  <button
+                    type="button"
+                    className="primary-btn"
+                    onClick={() => onNavigate("submit")}
+                    style={{ fontSize: "0.82rem", padding: "8px 18px" }}
+                  >
+                    ➕ Upload Animation / CAD File →
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Clean Student Notes & Working Principle (No Clingy Calculators) */}
+          {(activeMechanism.working_principle || activeMechanism.detailed_description || activeMechanism.applications) && (
+            <div
+              style={{
+                padding: "24px 28px",
+                background: "rgba(11, 16, 28, 0.75)",
+                border: "1px solid rgba(255, 255, 255, 0.08)",
+                borderRadius: "18px",
+                display: "flex",
+                flexDirection: "column",
+                gap: 16,
+              }}
+            >
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
+                <h3 style={{ margin: 0, fontSize: "1.1rem", color: "#f8fafc" }}>
+                  Student Project Notes
+                </h3>
+                <span style={{ fontSize: "0.8rem", color: "var(--muted, #94a3b8)" }}>
+                  {[activeMechanism.department || "Mechanical Engineering", activeMechanism.college || "NMIET", activeMechanism.academic_year].filter(Boolean).join(" · ")}
+                </span>
+              </div>
+
+              {activeMechanism.working_principle && (
+                <div>
+                  <h4 style={{ margin: "0 0 6px", fontSize: "0.88rem", color: "#38bdf8", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                    Working Principle
+                  </h4>
+                  <p style={{ margin: 0, fontSize: "0.9rem", color: "var(--text, #e2e8f0)", lineHeight: 1.6 }}>
+                    {activeMechanism.working_principle}
+                  </p>
+                </div>
+              )}
+
+              {activeMechanism.detailed_description && activeMechanism.detailed_description !== activeMechanism.working_principle && (
+                <div>
+                  <h4 style={{ margin: "0 0 6px", fontSize: "0.88rem", color: "#38bdf8", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                    Description
+                  </h4>
+                  <p style={{ margin: 0, fontSize: "0.9rem", color: "var(--text, #e2e8f0)", lineHeight: 1.6 }}>
+                    {activeMechanism.detailed_description}
+                  </p>
+                </div>
+              )}
+
+              {activeMechanism.applications && (
+                <div>
+                  <h4 style={{ margin: "0 0 6px", fontSize: "0.88rem", color: "#38bdf8", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                    Real-World Applications
+                  </h4>
+                  <p style={{ margin: 0, fontSize: "0.9rem", color: "var(--text, #e2e8f0)", lineHeight: 1.6 }}>
+                    {activeMechanism.applications}
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       )}
     </div>
   );

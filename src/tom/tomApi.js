@@ -427,6 +427,7 @@ export async function submitMechanism(formValues, filesByType, { approved = true
 
   // 2. If Supabase is available, push to Supabase in parallel
   const uploadErrors = [];
+  let submissionError = null;
   if (supabase) {
     try {
       const payload = {
@@ -447,19 +448,62 @@ export async function submitMechanism(formValues, filesByType, { approved = true
         department:                    localMech.department,
         college:                       localMech.college,
         academic_year:                 localMech.academic_year,
-        admin_feedback:                null,
         external_links:                localMech.external_links,
         status:                        approved !== false ? MECHANISM_STATUS.APPROVED : MECHANISM_STATUS.PENDING,
         cover_image:                   localCoverImage,
       };
 
-      const { data: remoteMech, error: dbError } = await supabase
+      // Only include optional fields if they have truthy values
+      if (localMech.admin_feedback) payload.admin_feedback = localMech.admin_feedback;
+      if (localMech.tracking_code) payload.tracking_code = localMech.tracking_code;
+
+      let { data: remoteMech, error: dbError } = await supabase
         .from(MECHANISMS_TABLE)
         .insert([payload])
         .select()
         .single();
 
-      if (!dbError && remoteMech) {
+      // Fallback: If remote table schema cache complains about an unadded column (PGRST204)
+      if (dbError && dbError.code === "PGRST204") {
+        console.warn("Supabase schema column mismatch. Retrying insert with core columns:", dbError.message);
+        const corePayload = {
+          name: localMech.name,
+          category: localMech.category,
+          short_description: localMech.short_description,
+          detailed_description: localMech.detailed_description,
+          working_principle: localMech.working_principle,
+          num_links: localMech.num_links,
+          num_joints: localMech.num_joints,
+          degrees_of_freedom: localMech.degrees_of_freedom,
+          input_link: localMech.input_link,
+          output_link: localMech.output_link,
+          student_name: localMech.student_name,
+          department: localMech.department,
+          college: localMech.college,
+          academic_year: localMech.academic_year,
+          status: approved !== false ? MECHANISM_STATUS.APPROVED : MECHANISM_STATUS.PENDING,
+          cover_image: localCoverImage,
+        };
+        const retryRes = await supabase
+          .from(MECHANISMS_TABLE)
+          .insert([corePayload])
+          .select()
+          .single();
+        remoteMech = retryRes.data;
+        dbError = retryRes.error;
+      }
+
+      if (dbError) {
+        submissionError = dbError;
+        console.error("Supabase insert mechanism error:", dbError.message || dbError);
+      } else if (remoteMech) {
+        // If remote insert succeeded, update local mechanism ID with the remote UUID
+        localMech.id = remoteMech.id;
+        const currentUpdated = getLocalMechanisms().map((m) =>
+          m.id === localId ? { ...m, id: remoteMech.id } : m
+        );
+        saveLocalMechanisms(currentUpdated);
+
         let remoteCover = null;
         let remoteBg = null;
         for (const [type, files] of Object.entries(filesByType || {})) {
@@ -474,23 +518,31 @@ export async function submitMechanism(formValues, filesByType, { approved = true
             if (!remoteCover && (type === "image" || type === "drawing")) remoteCover = url;
             if (type === "background_image") remoteBg = url;
             
-            if (/\.(html|htm)$/i.test(file.name)) {
-              await supabase.from(MECHANISMS_TABLE).update({ html_animation_url: url }).eq("id", remoteMech.id);
-            }
-            if (/\.(stl|gltf|glb|obj)$/i.test(file.name)) {
-              await supabase.from(MECHANISMS_TABLE).update({ cad_model_url: url }).eq("id", remoteMech.id);
-            }
-            if (type === "document") {
-              await supabase.from(MECHANISMS_TABLE).update({ report_url: url }).eq("id", remoteMech.id);
+            try {
+              if (/\.(html|htm)$/i.test(file.name)) {
+                await supabase.from(MECHANISMS_TABLE).update({ html_animation_url: url }).eq("id", remoteMech.id);
+              }
+              if (/\.(stl|gltf|glb|obj)$/i.test(file.name)) {
+                await supabase.from(MECHANISMS_TABLE).update({ cad_model_url: url }).eq("id", remoteMech.id);
+              }
+              if (type === "document") {
+                await supabase.from(MECHANISMS_TABLE).update({ report_url: url }).eq("id", remoteMech.id);
+              }
+            } catch {
+              // optional column updates
             }
 
-            await supabase.from("tom_mechanism_media").insert([{
-              mechanism_id: remoteMech.id,
-              file_type: (type === "background_image") ? "image" : (type === "animation_html" ? "animation" : type),
-              file_name: file.name,
-              file_path: path,
-              file_url: url
-            }]);
+            try {
+              await supabase.from("tom_mechanism_media").insert([{
+                mechanism_id: remoteMech.id,
+                file_type: (type === "background_image") ? "image" : (type === "animation_html" ? "animation" : type),
+                file_name: file.name,
+                file_path: path,
+                file_url: url
+              }]);
+            } catch (mediaErr) {
+              console.warn("Could not insert to tom_mechanism_media:", mediaErr);
+            }
           }
         }
         
@@ -498,15 +550,20 @@ export async function submitMechanism(formValues, filesByType, { approved = true
         if (remoteCover) updates.cover_image = remoteCover;
         if (remoteBg) updates.background_image = remoteBg;
         if (Object.keys(updates).length > 0) {
-          await supabase.from(MECHANISMS_TABLE).update(updates).eq("id", remoteMech.id);
+          try {
+            await supabase.from(MECHANISMS_TABLE).update(updates).eq("id", remoteMech.id);
+          } catch {
+            // ignore
+          }
         }
       }
     } catch (err) {
-      console.warn("Supabase background sync skipped:", err);
+      submissionError = err;
+      console.warn("Supabase background sync exception:", err);
     }
   }
 
-  return { mechanism: localMech, uploadErrors, hasBlobOnlyFiles, error: null };
+  return { mechanism: localMech, uploadErrors, hasBlobOnlyFiles, error: submissionError };
 }
 
 async function uploadMechanismFile(mechanismId, type, file) {
@@ -541,17 +598,23 @@ export async function approveMechanism(id) {
     saveLocalMechanisms(list);
   }
 
+  let dbError = null;
   if (supabase) {
     try {
-      await supabase
+      const { error } = await supabase
         .from(MECHANISMS_TABLE)
         .update({ status: MECHANISM_STATUS.APPROVED, admin_feedback: null })
         .eq("id", id);
-    } catch {
-      // ignore
+      if (error) {
+        dbError = error;
+        console.error("Supabase approve error:", error.message || error);
+      }
+    } catch (err) {
+      dbError = err;
+      console.error("Supabase approve exception:", err);
     }
   }
-  return { error: null };
+  return { error: dbError };
 }
 
 /** Admin: reject a pending submission with optional faculty feedback. */
@@ -564,20 +627,26 @@ export async function rejectMechanism(id, feedback = "") {
     saveLocalMechanisms(list);
   }
 
+  let dbError = null;
   if (supabase) {
     try {
-      await supabase
+      const { error } = await supabase
         .from(MECHANISMS_TABLE)
         .update({
           status: MECHANISM_STATUS.REJECTED,
           admin_feedback: feedback ? feedback.trim() : null,
         })
         .eq("id", id);
-    } catch {
-      // ignore
+      if (error) {
+        dbError = error;
+        console.error("Supabase reject error:", error.message || error);
+      }
+    } catch (err) {
+      dbError = err;
+      console.error("Supabase reject exception:", err);
     }
   }
-  return { error: null };
+  return { error: dbError };
 }
 
 /** Admin: edit an approved/pending mechanism's fields. */
@@ -589,14 +658,20 @@ export async function updateMechanism(id, fields) {
     saveLocalMechanisms(list);
   }
 
+  let dbError = null;
   if (supabase) {
     try {
-      await supabase.from(MECHANISMS_TABLE).update(fields).eq("id", id);
-    } catch {
-      // ignore
+      const { error } = await supabase.from(MECHANISMS_TABLE).update(fields).eq("id", id);
+      if (error) {
+        dbError = error;
+        console.error("Supabase update error:", error.message || error);
+      }
+    } catch (err) {
+      dbError = err;
+      console.error("Supabase update exception:", err);
     }
   }
-  return { error: null };
+  return { error: dbError };
 }
 
 /** Admin: permanently delete a mechanism. */
@@ -604,14 +679,20 @@ export async function deleteMechanism(id) {
   const list = getLocalMechanisms().filter((m) => String(m.id) !== String(id));
   saveLocalMechanisms(list);
 
+  let dbError = null;
   if (supabase) {
     try {
-      await supabase.from(MECHANISMS_TABLE).delete().eq("id", id);
-    } catch {
-      // ignore
+      const { error } = await supabase.from(MECHANISMS_TABLE).delete().eq("id", id);
+      if (error) {
+        dbError = error;
+        console.error("Supabase delete error:", error.message || error);
+      }
+    } catch (err) {
+      dbError = err;
+      console.error("Supabase delete exception:", err);
     }
   }
-  return { error: null };
+  return { error: dbError };
 }
 
 /** Admin: remove a single uploaded resource from a mechanism. */
@@ -624,13 +705,72 @@ export async function deleteMechanismMedia(mediaRow) {
   }
   saveLocalMechanisms(list);
 
+  let dbError = null;
   if (supabase && mediaRow.file_path) {
     try {
-      await supabase.storage.from(STORAGE_BUCKET).remove([mediaRow.file_path]);
-      await supabase.from(MEDIA_TABLE).delete().eq("id", mediaRow.id);
-    } catch {
-      // ignore
+      const { error: storageErr } = await supabase.storage.from(STORAGE_BUCKET).remove([mediaRow.file_path]);
+      if (storageErr) console.warn("Storage remove warning:", storageErr.message || storageErr);
+      const { error: dbErr } = await supabase.from(MEDIA_TABLE).delete().eq("id", mediaRow.id);
+      if (dbErr) {
+        dbError = dbErr;
+        console.error("Supabase delete media error:", dbErr.message || dbErr);
+      }
+    } catch (err) {
+      dbError = err;
+      console.error("Supabase delete media exception:", err);
     }
   }
-  return { error: null };
+  return { error: dbError };
 }
+
+/**
+ * Pushes any student submissions stored only in localStorage to the Supabase database.
+ * Returns { syncedCount, error }
+ */
+export async function syncLocalMechanismsToSupabase() {
+  if (!supabase) return { syncedCount: 0, error: new Error("Supabase is not configured.") };
+  const localList = getLocalMechanisms();
+  let count = 0;
+  let lastError = null;
+
+  for (const m of localList) {
+    // If it's a locally generated ID (e.g. student-...) and not a remote UUID
+    if (String(m.id || "").startsWith("student-")) {
+      const payload = {
+        name: m.name,
+        category: m.category || "Four-bar",
+        short_description: m.short_description || m.description || "",
+        detailed_description: m.detailed_description || m.description || "",
+        working_principle: m.working_principle || m.description || "",
+        applications: m.applications || null,
+        num_links: m.num_links || 4,
+        num_joints: m.num_joints || 4,
+        degrees_of_freedom: m.degrees_of_freedom || 1,
+        input_link: m.input_link || "Link 1",
+        output_link: m.output_link || "Output",
+        student_name: m.student_name || "Student Submission",
+        team_members: m.team_members || null,
+        department: m.department || "Mechanical Engineering",
+        college: m.college || "NMIET",
+        academic_year: m.academic_year || "TE Mech",
+        status: m.status || MECHANISM_STATUS.APPROVED,
+        cover_image: m.cover_image || null,
+      };
+
+      const { data, error } = await supabase.from(MECHANISMS_TABLE).insert([payload]).select().single();
+      if (!error && data) {
+        count++;
+        m.id = data.id;
+      } else if (error) {
+        lastError = error;
+        console.warn("Could not sync local item to Supabase:", error.message || error);
+      }
+    }
+  }
+
+  if (count > 0) {
+    saveLocalMechanisms(localList);
+  }
+  return { syncedCount: count, error: lastError };
+}
+

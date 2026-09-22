@@ -9,11 +9,28 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks(id) {
-          if (id.includes('node_modules')) {
-            if (id.includes('@supabase')) {
+          const norm = id.replace(/\\/g, '/');
+          if (norm.includes('/node_modules/')) {
+            if (
+              norm.includes('/three/') ||
+              norm.includes('/@react-three/') ||
+              norm.includes('three-stdlib') ||
+              norm.includes('camera-controls') ||
+              norm.includes('detect-gpu') ||
+              norm.includes('troika') ||
+              norm.includes('maath') ||
+              norm.includes('suspend-react')
+            ) {
+              return 'vendor-three';
+            }
+            if (norm.includes('/@supabase/')) {
               return 'supabase';
             }
-            if (id.includes('react') || id.includes('react-dom')) {
+            if (
+              norm.includes('/react/') ||
+              norm.includes('/react-dom/') ||
+              norm.includes('/scheduler/')
+            ) {
               return 'vendor-react';
             }
             return 'vendor';
@@ -23,4 +40,3 @@ export default defineConfig({
     },
   },
 })
-

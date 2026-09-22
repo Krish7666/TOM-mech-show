@@ -129,9 +129,13 @@ export default function AdminPage({ onLogout, onNavigate, showToast }) {
 
   // ── Moderation actions ───────────────────────────────────────────────────
   async function handleApprovePending(id) {
-    await approveMechanism(id);
+    const res = await approveMechanism(id);
     await refreshData();
-    showToast("✅ Mechanism approved and published to showcase.");
+    if (res?.error) {
+      showToast("⚠️ Approved locally, but Supabase update failed (check auth/RLS permissions).");
+    } else {
+      showToast("✅ Mechanism approved and published to showcase.");
+    }
   }
 
   function handleRejectPending(id) {
@@ -147,9 +151,13 @@ export default function AdminPage({ onLogout, onNavigate, showToast }) {
   async function handleConfirmRejection() {
     const { id, feedback } = rejectionModal;
     setRejectionModal({ open: false, id: null, name: "", feedback: "" });
-    await rejectMechanism(id, feedback);
+    const res = await rejectMechanism(id, feedback);
     await refreshData();
-    showToast("Submission marked as rejected with faculty feedback.");
+    if (res?.error) {
+      showToast("⚠️ Rejected locally, but Supabase update failed (check auth/RLS permissions).");
+    } else {
+      showToast("Submission marked as rejected with faculty feedback.");
+    }
   }
 
   function handleDeleteMechanism(id) {
@@ -161,9 +169,13 @@ export default function AdminPage({ onLogout, onNavigate, showToast }) {
       danger: true,
       onConfirm: async () => {
         closeDialog();
-        await apiDeleteMechanism(id);
+        const res = await apiDeleteMechanism(id);
         await refreshData();
-        showToast(`"${mech.name}" deleted.`);
+        if (res?.error) {
+          showToast(`⚠️ Deleted locally, but Supabase delete failed (check permissions).`);
+        } else {
+          showToast(`"${mech.name}" deleted.`);
+        }
       },
     });
   }

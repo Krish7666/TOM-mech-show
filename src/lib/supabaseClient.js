@@ -73,6 +73,11 @@ export async function verifyAdminCredentials(usernameOrEmail, password) {
 
     const hash = await sha256Hex(password);
     if (hash === ADMIN_PASSWORD_HASH) {
+      if (isSupabaseConfigured) {
+        console.warn(
+          "Admin signed in via local password. Note: Supabase cloud modifications require a registered Supabase Auth account when strict RLS is enabled."
+        );
+      }
       return { success: true, authMode: "local" };
     }
   }

@@ -20,10 +20,10 @@ import { version as APP_VERSION } from "../package.json";
 
 const menuCards = [
   {
-    title: "Animation & DOF Studio",
-    copy: "Kinematic motion models, real-time Grübler mobility calculations & student virtual lab simulations.",
+    title: "Student Animations & CAD",
+    copy: "Explore student-uploaded interactive HTML kinematic animations and 3D CAD models.",
     action: "Animations",
-    badge: "Motion & DOF Studio",
+    badge: "Student Works",
   },
   {
     title: "Mechanism Simulator Lab",

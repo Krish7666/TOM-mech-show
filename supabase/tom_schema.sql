@@ -50,6 +50,14 @@ create index if not exists tom_mechanisms_status_idx   on public.tom_mechanisms 
 create index if not exists tom_mechanisms_category_idx on public.tom_mechanisms (category);
 create index if not exists tom_mechanisms_tracking_idx on public.tom_mechanisms (tracking_code);
 
+-- Safe patch: Ensure all modern columns exist on existing databases without data loss
+alter table public.tom_mechanisms add column if not exists admin_feedback text;
+alter table public.tom_mechanisms add column if not exists tracking_code text;
+alter table public.tom_mechanisms add column if not exists html_animation_url text;
+alter table public.tom_mechanisms add column if not exists cad_model_url text;
+alter table public.tom_mechanisms add column if not exists report_url text;
+alter table public.tom_mechanisms add column if not exists background_image text;
+
 create table if not exists public.tom_mechanism_media (
   id             uuid primary key default gen_random_uuid(),
   created_at     timestamptz not null default now(),
@@ -72,10 +80,10 @@ grant select, insert on table public.tom_mechanism_media to anon; grant all on t
 alter table public.tom_mechanisms      enable row level security;
 alter table public.tom_mechanism_media enable row level security;
 
--- Public can view approved mechanisms, or check their own mechanism by tracking code
+-- Public can view approved mechanisms, or authenticated users (faculty/admin) can view all
 drop policy if exists "tom_mechanisms_select_all" on public.tom_mechanisms;
 create policy "tom_mechanisms_select_all" on public.tom_mechanisms
-  for select using (status = 'approved' or tracking_code is not null or auth.role() = 'authenticated');
+  for select using (status = 'approved' or auth.role() = 'authenticated');
 
 -- Public can submit mechanisms with status forced to 'pending'
 drop policy if exists "tom_mechanisms_insert_public" on public.tom_mechanisms;

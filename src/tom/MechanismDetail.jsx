@@ -1,9 +1,6 @@
 import { useEffect, useMemo, useState, useRef, lazy, Suspense } from "react";
 import { tomCategoryMeta } from "./tomConstants";
 import { fetchMechanismDetail, deleteMechanism, deleteMechanismMedia, approveMechanism, rejectMechanism } from "./tomApi";
-import { analyzeMechanism } from "./kinematics.js";
-import MechanismPreview from "./MechanismPreview.jsx";
-import DofCalculatorWidget from "./DofCalculatorWidget.jsx";
 
 const Mechanism3DViewer = lazy(() => import("./Mechanism3DViewer.jsx"));
 
@@ -145,10 +142,22 @@ export default function MechanismDetail({ id, isAdmin, onBack, onChanged }) {
     if (mechanism?.animation_url && (isHtmlAnimationUrl(mechanism.animation_url) || isSafeUrl(mechanism.animation_url))) {
       return mechanism.animation_url.trim();
     }
-    const animRow = media.find((m) => (m.file_type === "animation" || m.format === "html") && isSafeUrl(m.file_url));
+    const animRow = media.find((m) => {
+      if (!isSafeUrl(m.file_url)) return false;
+      if (m.file_type === "animation" || m.format === "html") return true;
+      const fn = (m.file_name || "").toLowerCase();
+      const fu = (m.file_url || "").toLowerCase();
+      return (
+        fn.endsWith(".html") ||
+        fn.endsWith(".htm") ||
+        fu.includes(".html") ||
+        fu.includes(".htm") ||
+        fu.startsWith("data:text/html")
+      );
+    });
     if (animRow) return animRow.file_url.trim();
     if (Array.isArray(mechanism?.external_links)) {
-      const link = mechanism.external_links.find((l) => isHtmlAnimationUrl(l));
+      const link = mechanism.external_links.find((l) => isHtmlAnimationUrl(l) || isSafeUrl(l));
       if (link) return link.trim();
     }
     return null;
@@ -160,7 +169,6 @@ export default function MechanismDetail({ id, isAdmin, onBack, onChanged }) {
       const tab = tabForType(m.file_type);
       if (groups[tab]) groups[tab].push(m);
     });
-
 
     if (htmlAnimationUrl && !groups.Animation.some((v) => v.file_url === htmlAnimationUrl)) {
       groups.Animation.unshift({
@@ -220,8 +228,6 @@ export default function MechanismDetail({ id, isAdmin, onBack, onChanged }) {
     return groups;
   }, [media, mechanism, id, htmlAnimationUrl]);
 
-  const analysis = useMemo(() => (mechanism ? analyzeMechanism(mechanism) : null), [mechanism]);
-
   const availableTabs = useMemo(
     () =>
       TABS.filter((t) => {
@@ -250,16 +256,22 @@ export default function MechanismDetail({ id, isAdmin, onBack, onChanged }) {
 
   async function handleApprove() {
     setBusy(true);
-    await approveMechanism(id);
+    const res = await approveMechanism(id);
     setMechanism((cur) => ({ ...cur, status: "approved" }));
     setBusy(false);
+    if (res?.error) {
+      console.warn("Approved locally, but Supabase cloud update failed:", res.error);
+    }
     onChanged?.();
   }
 
   async function handleReject() {
     setBusy(true);
-    await rejectMechanism(id);
+    const res = await rejectMechanism(id);
     setBusy(false);
+    if (res?.error) {
+      console.warn("Rejected locally, but Supabase cloud update failed:", res.error);
+    }
     onChanged?.();
     onBack();
   }
@@ -385,7 +397,7 @@ export default function MechanismDetail({ id, isAdmin, onBack, onChanged }) {
           <button key={tab} type="button" role="tab" aria-selected={activeTab === tab}
             className={`tom-detail__tab${activeTab === tab ? " tom-detail__tab--active" : ""}`}
             onClick={() => { setActiveTab(tab); window.scrollTo({ top: 0, behavior: "smooth" }); }}>
-            {tab === "Animation" ? "🧪 Animation & DOF Studio" : tab}
+            {tab}
           </button>
         ))}
       </div>
@@ -412,25 +424,13 @@ export default function MechanismDetail({ id, isAdmin, onBack, onChanged }) {
 
       <h2 className="tom-detail__section-title">Mechanism Specifications</h2>
       <div className="tom-spec-grid">
-        <SpecCard label="Parts / Links" value={mechanism.num_links ?? analysis?.links ?? 4} />
-        <SpecCard label="Joints" value={mechanism.num_joints ?? analysis?.joints ?? 4} />
-        <SpecCard label="Contact Points" value={mechanism.higher_pairs ?? analysis?.higherPairs ?? 0} />
-        <SpecCard label="Movement Type" value={analysis?.result ? `${analysis.result} DOF` : `${mechanism.degrees_of_freedom ?? 1} DOF`} />
-        <SpecCard label="Joint Type" value={mechanism.kinematic_pairs || "Pin / Pivot Joints"} />
-        <SpecCard label="Driver / Input" value={mechanism.input_link || "Link 1 (Driver)"} />
-        <SpecCard label="Output Movement" value={mechanism.output_link || "Output / Rocker"} />
+        <SpecCard label="Links" value={mechanism.num_links || 4} />
+        <SpecCard label="Joints" value={mechanism.num_joints || 4} />
+        <SpecCard label="Degrees of Freedom" value={`${mechanism.degrees_of_freedom ?? 1} DOF`} />
+        {mechanism.kinematic_pairs && <SpecCard label="Joint Type" value={mechanism.kinematic_pairs} />}
+        {mechanism.input_link && <SpecCard label="Driver Link" value={mechanism.input_link} />}
+        {mechanism.output_link && <SpecCard label="Output Link" value={mechanism.output_link} />}
       </div>
-      {analysis && (
-        <div className={`analysis-status analysis-status--${analysis.status}`} style={{ margin: "16px 0" }}>
-          <div>
-            <span className="analysis-status__eyebrow">Mobility Classification</span>
-            <h3>{analysis.title}</h3>
-          </div>
-          <strong>{analysis.status === "invalid" ? "!" : analysis.result}</strong>
-          <p>{analysis.explanation}</p>
-          <p className="analysis-status__recommendation">{analysis.recommendation}</p>
-        </div>
-      )}
       {mechanism.additional_technical_details && (
         <p className="tom-detail__extra-tech">{mechanism.additional_technical_details}</p>
       )}
@@ -674,19 +674,19 @@ function StudentCustomAnimationViewer({ htmlUrl, mechanism, onReload, reloadKey 
               flexDirection: "column",
               alignItems: "center",
               justifyContent: "center",
-              padding: "36px 20px",
+              padding: "48px 20px",
               height: "100%",
               flex: 1,
               textAlign: "center",
               background: "radial-gradient(ellipse at center, rgba(56, 189, 248, 0.05) 0%, rgba(3, 7, 18, 0.8) 100%)",
             }}
           >
-            <span style={{ fontSize: "2.6rem", marginBottom: 12 }}>📁</span>
+            <span style={{ fontSize: "2.8rem", marginBottom: 12 }}>🌀</span>
             <h4 style={{ margin: "0 0 8px", color: "#f8fafc", fontSize: "1.05rem" }}>
-              No Student Custom Animation Attached
+              No HTML Animation Uploaded Yet
             </h4>
-            <p style={{ margin: "0 0 18px", color: "#94a3b8", fontSize: "0.82rem", maxWidth: 320, lineHeight: 1.5 }}>
-              The student has not attached a custom HTML virtual lab file yet. You can still explore the live Kinematic Animation beside this card.
+            <p style={{ margin: "0 0 18px", color: "#94a3b8", fontSize: "0.85rem", maxWidth: 360, lineHeight: 1.5 }}>
+              The student has not uploaded an interactive HTML animation file for this mechanism yet.
             </p>
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "center" }}>
               <button
@@ -694,7 +694,7 @@ function StudentCustomAnimationViewer({ htmlUrl, mechanism, onReload, reloadKey 
                 className="secondary-btn secondary-btn--small"
                 onClick={() => { window.location.hash = "animations"; }}
               >
-                🖥️ Browse Student Animations
+                🖥️ Browse Student Animations Showcase
               </button>
             </div>
           </div>
@@ -713,71 +713,42 @@ function OverviewPanel({ mechanism, htmlAnimationUrl, onOpenAnimation }) {
 
   return (
     <div className="tom-overview">
-      {/* Interactive Virtual Lab / Animation Callout Banner */}
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          padding: "14px 18px",
-          marginBottom: 22,
-          borderRadius: 14,
-          background: "linear-gradient(135deg, rgba(56, 189, 248, 0.12), rgba(14, 165, 233, 0.04))",
-          border: "1px solid rgba(56, 189, 248, 0.3)",
-          boxShadow: "0 6px 20px rgba(0, 0, 0, 0.25)",
-          flexWrap: "wrap",
-          gap: 12,
-        }}
-      >
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <span style={{ fontSize: "1.6rem" }}>🧪</span>
-          <div>
-            <strong style={{ color: "#f8fafc", fontSize: "0.96rem", display: "block" }}>
-              Animation & DOF Studio
-            </strong>
-            <span style={{ fontSize: "0.78rem", color: "var(--muted, #94a3b8)" }}>
-              Kinematic animation, student custom HTML simulation, and live Grübler DOF calculator — all side by side.
-            </span>
+      {htmlAnimationUrl && (
+        <div
+          style={{
+            marginBottom: 20,
+            padding: "16px 20px",
+            borderRadius: 14,
+            background: "linear-gradient(135deg, rgba(56, 189, 248, 0.12), rgba(30, 58, 138, 0.2))",
+            border: "1px solid rgba(56, 189, 248, 0.35)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            flexWrap: "wrap",
+            gap: 12,
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <span style={{ fontSize: "1.8rem" }}>🌀</span>
+            <div>
+              <div style={{ fontWeight: 700, color: "#f8fafc", fontSize: "0.98rem" }}>
+                Interactive Student HTML Animation Available
+              </div>
+              <div style={{ fontSize: "0.82rem", color: "#94a3b8" }}>
+                Click to open and run the student-uploaded HTML simulation for this mechanism.
+              </div>
+            </div>
           </div>
-        </div>
-
-        <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-          <button
-            type="button"
-            className="secondary-btn secondary-btn--small"
-            style={{
-              padding: "7px 14px",
-              fontSize: "0.82rem",
-              borderColor: "rgba(168, 85, 247, 0.4)",
-              color: "#c084fc",
-            }}
-            onClick={() => {
-              if (mechanism?.id) {
-                window.location.hash = `animation/${mechanism.id}`;
-              } else {
-                window.location.hash = "animations";
-              }
-            }}
-            title="Open dedicated Animation & DOF Studio page"
-          >
-            ⚡ Open Animation &amp; DOF Page ↗
-          </button>
           <button
             type="button"
             className="primary-btn"
-            style={{
-              padding: "8px 18px",
-              fontSize: "0.84rem",
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "6px",
-            }}
+            style={{ padding: "8px 18px", fontSize: "0.85rem", cursor: "pointer" }}
             onClick={onOpenAnimation}
           >
-            🧪 View Animation &amp; DOF Tab →
+            Launch Animation ↗
           </button>
         </div>
-      </div>
+      )}
 
       {cover && (
         <div className="tom-overview__media-hero" style={{ marginBottom: 20, borderRadius: 16, overflow: "hidden", border: "1px solid var(--border)", maxHeight: 380, background: "rgba(0,0,0,0.2)" }}>
@@ -854,135 +825,14 @@ function MediaPanel({ items, tab, isAdmin, onDelete, mechanism, htmlAnimationUrl
   if (tab === "Animation") {
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
-        {/* Banner with direct action to open dedicated Animation & DOF full page */}
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            padding: "12px 18px",
-            borderRadius: 14,
-            background: "linear-gradient(135deg, rgba(56, 189, 248, 0.12), rgba(168, 85, 247, 0.08))",
-            border: "1px solid rgba(56, 189, 248, 0.3)",
-            flexWrap: "wrap",
-            gap: 12,
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <span style={{ fontSize: "1.4rem" }}>⚙️</span>
-            <div>
-              <strong style={{ color: "#f8fafc", fontSize: "0.92rem", display: "block" }}>
-                Kinematic Animation &amp; Grübler DOF Studio
-              </strong>
-              <span style={{ fontSize: "0.76rem", color: "var(--muted, #94a3b8)" }}>
-                Explore dynamic linkage motion, student custom HTML simulations, and real-time planar degrees of freedom.
-              </span>
-            </div>
-          </div>
-          <button
-            type="button"
-            className="primary-btn"
-            style={{
-              padding: "7px 16px",
-              fontSize: "0.82rem",
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 6,
-            }}
-            onClick={() => {
-              if (mechanism?.id) {
-                window.location.hash = `animation/${mechanism.id}`;
-              } else {
-                window.location.hash = "animations";
-              }
-            }}
-          >
-            🖥️ Open Animation &amp; DOF Dedicated Page ↗
-          </button>
-        </div>
-
-        {/* ── 3-PANEL WORKBENCH: ANIMATION + STUDENT CUSTOM ANIMATION + DOF CALCULATOR ── */}
-        <div
-          className="tom-workbench-grid"
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
-            gap: 20,
-            alignItems: "stretch",
-          }}
-        >
-          {/* 1. KINEMATIC ANIMATION */}
-          <div
-            style={{
-              minWidth: 0,
-              display: "flex",
-              flexDirection: "column",
-              borderRadius: 18,
-              overflow: "hidden",
-              border: "1px solid rgba(255, 255, 255, 0.12)",
-              background: "rgba(10, 16, 28, 0.9)",
-              boxShadow: "0 10px 30px rgba(0, 0, 0, 0.45)",
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                padding: "12px 18px",
-                background: "rgba(15, 23, 42, 0.9)",
-                borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
-                gap: 10,
-              }}
-            >
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <span style={{ fontSize: "1.2rem" }}>⚙️</span>
-                <div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <strong style={{ color: "#f8fafc", fontSize: "0.95rem" }}>
-                      Kinematic Animation
-                    </strong>
-                    <span
-                      style={{
-                        fontSize: "0.68rem",
-                        padding: "2px 8px",
-                        borderRadius: "999px",
-                        background: "rgba(168, 85, 247, 0.15)",
-                        color: "#c084fc",
-                        border: "1px solid rgba(168, 85, 247, 0.35)",
-                        fontWeight: 700,
-                        fontFamily: "var(--font-mono, monospace)",
-                      }}
-                    >
-                      MOTION MODEL
-                    </span>
-                  </div>
-                  <span style={{ fontSize: "0.74rem", color: "var(--muted, #94a3b8)" }}>
-                    Dynamic link movement &amp; joint paths
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <div style={{ flex: 1, minHeight: "420px", position: "relative" }}>
-              <MechanismPreview mechanism={mechanism} />
-            </div>
-          </div>
-
-          {/* 2. STUDENT CUSTOM ANIMATION (with Full Screen & Dedicated Screen) */}
-          <div style={{ minWidth: 0, display: "flex", flexDirection: "column" }}>
-            <StudentCustomAnimationViewer
-              htmlUrl={htmlAnimationUrl}
-              mechanism={mechanism}
-              reloadKey={animReloadKey}
-              onReload={() => setAnimReloadKey((k) => k + 1)}
-            />
-          </div>
-
-          {/* 3. GRÜBLER DOF CALCULATOR */}
-          <div style={{ minWidth: 300, display: "flex", flexDirection: "column" }}>
-            <DofCalculatorWidget mechanism={mechanism} />
-          </div>
+        {/* Clean full-width Student Uploaded Animation */}
+        <div style={{ width: "100%", display: "flex", flexDirection: "column" }}>
+          <StudentCustomAnimationViewer
+            htmlUrl={htmlAnimationUrl}
+            mechanism={mechanism}
+            reloadKey={animReloadKey}
+            onReload={() => setAnimReloadKey((k) => k + 1)}
+          />
         </div>
 
         {items.length > 0 && (
