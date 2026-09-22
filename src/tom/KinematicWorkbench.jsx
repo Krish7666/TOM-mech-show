@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { analyzeMechanism } from "./kinematics";
 import MechanismPreview from "./MechanismPreview";
-import FourBarVirtualLab from "./FourBarVirtualLab";
 
 const PRESETS = [
   { name: "Four-Bar Linkage", links: 4, joints: 4, higherPairs: 0, category: "Linkages" },
@@ -10,7 +9,6 @@ const PRESETS = [
 ];
 
 export default function KinematicWorkbench({ initialMechanism = null, onApply = null }) {
-  const [activeTool, setActiveTool] = useState("mobility"); // "mobility" | "vlab"
   const [links, setLinks] = useState(initialMechanism?.dofInputs?.links ?? initialMechanism?.links ?? initialMechanism?.num_links ?? 4);
   const [joints, setJoints] = useState(initialMechanism?.dofInputs?.joints ?? initialMechanism?.joints ?? initialMechanism?.num_joints ?? 4);
   const [higherPairs, setHigherPairs] = useState(initialMechanism?.dofInputs?.higherPairs ?? initialMechanism?.higherPairs ?? initialMechanism?.higher_pairs ?? 0);
@@ -68,29 +66,14 @@ export default function KinematicWorkbench({ initialMechanism = null, onApply = 
       <div style={{ display: "flex", gap: "10px", margin: "16px 0 20px 0", flexWrap: "wrap", alignItems: "center" }}>
         <button
           type="button"
-          className={`button ${activeTool === "mobility" ? "button--primary" : "button--secondary"}`}
+          className="button button--primary"
           style={{ fontSize: "0.85rem", padding: "8px 16px" }}
-          onClick={() => setActiveTool("mobility")}
         >
           ⚙️ Mobility &amp; DOF Calculator
         </button>
-        <button
-          type="button"
-          className={`button ${activeTool === "vlab" ? "button--primary" : "button--secondary"}`}
-          style={{ fontSize: "0.85rem", padding: "8px 16px", borderColor: "rgba(56, 189, 248, 0.4)", color: activeTool === "vlab" ? "#fff" : "#38bdf8" }}
-          onClick={() => setActiveTool("vlab")}
-        >
-          🔬 Four-Bar Virtual Lab (Grashof &amp; Coupler Curves)
-        </button>
       </div>
 
-      {activeTool === "vlab" ? (
-        <div style={{ marginTop: 8 }}>
-          <FourBarVirtualLab initialMechanism={initialMechanism} standalone={false} />
-        </div>
-      ) : (
-        <>
-          {/* ── PRESETS ──────────────────────────────────────────────────────── */}
+      {/* ── PRESETS ──────────────────────────────────────────────────────── */}
           <div className="workbench-presets">
             <span className="workbench-presets__label">Quick Presets:</span>
             <div className="workbench-presets__list" style={{ display: "flex", flexWrap: "wrap", gap: "6px", width: "100%", alignItems: "center" }}>
@@ -225,8 +208,6 @@ export default function KinematicWorkbench({ initialMechanism = null, onApply = 
           </div>
         </div>
       </div>
-    </>
-  )}
-</div>
-);
+    </div>
+  );
 }
