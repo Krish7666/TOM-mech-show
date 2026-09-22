@@ -168,19 +168,18 @@ img {
 }
 
 .site-header {
-  position: sticky;
-  position: -webkit-sticky;
+  position: fixed;
   top: 0;
   left: 0;
   right: 0;
   width: 100%;
+  height: 72px;
   z-index: 1000;
-  background: rgba(7, 10, 18, 0.88);
+  background: rgba(7, 10, 18, 0.92);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   border-bottom: 1px solid rgba(56, 189, 248, 0.16);
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.45);
-  transition: background-color 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
 }
 
 .site-header__inner {
@@ -189,8 +188,16 @@ img {
   justify-content: space-between;
   gap: 16px;
   width: min(1180px, calc(100% - 32px));
+  height: 100%;
   margin: 0 auto;
-  padding: 12px 0;
+  padding: 0;
+}
+
+.app-body-content {
+  padding-top: 72px;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
 }
 
 .brand {
@@ -2664,6 +2671,14 @@ img {
 }
 
 @media (max-width: 640px) {
+  .site-header {
+    height: 62px;
+  }
+
+  .app-body-content {
+    padding-top: 62px;
+  }
+
   .app-layout {
     width: min(100% - 20px, 1120px);
     padding-bottom: 64px;
@@ -2671,7 +2686,6 @@ img {
 
   .site-header__inner {
     width: min(100% - 20px, 1180px);
-    padding: 8px 0;
   }
 
   .main-nav {

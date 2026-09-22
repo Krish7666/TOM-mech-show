@@ -257,30 +257,7 @@ export default function App() {
         <div className="app-orb app-orb--green" />
       </div>
 
-      {/* ── TELEMETRY BAR ── */}
-      <div className="system-telemetry-bar">
-        <div className="telemetry-inner">
-          <div className="telemetry-left">
-            <span className="telemetry-status-dot" />
-            <span className="telemetry-label">SYSTEM ONLINE</span>
-            <span className="telemetry-sep">/</span>
-            <span className="telemetry-cloud">
-              {isSupabaseConfigured ? "🟢 SUPABASE CLOUD ACTIVE" : "🟢 LOCAL SYNC ENGINE ACTIVE"}
-            </span>
-            <span className="telemetry-sep">/</span>
-            <span className="telemetry-item">BUILD: v{APP_VERSION}</span>
-          </div>
-          <div className="telemetry-right">
-            <span className="telemetry-institute">PCET's NMIET · SPPU MECHANICAL ENGINEERING</span>
-            <span className="telemetry-sep">/</span>
-            <span className="telemetry-session">
-              {isAdminLoggedIn ? "⚡ ADMIN SESSION ACTIVE" : "STUDENT ACCESS"}
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* ── HEADER ── */}
+      {/* ── FIXED TOP NAVIGATION HEADER ── */}
       <header className="site-header">
         <div className="site-header__inner">
           <button
@@ -317,6 +294,31 @@ export default function App() {
           </div>
         </div>
       </header>
+
+      {/* ── APP BODY CONTENT WRAPPER ── */}
+      <div className="app-body-content">
+        {/* ── TELEMETRY BAR ── */}
+        <div className="system-telemetry-bar">
+          <div className="telemetry-inner">
+            <div className="telemetry-left">
+              <span className="telemetry-status-dot" />
+              <span className="telemetry-label">SYSTEM ONLINE</span>
+              <span className="telemetry-sep">/</span>
+              <span className="telemetry-cloud">
+                {isSupabaseConfigured ? "🟢 SUPABASE CLOUD ACTIVE" : "🟢 LOCAL SYNC ENGINE ACTIVE"}
+              </span>
+              <span className="telemetry-sep">/</span>
+              <span className="telemetry-item">BUILD: v{APP_VERSION}</span>
+            </div>
+            <div className="telemetry-right">
+              <span className="telemetry-institute">PCET's NMIET · SPPU MECHANICAL ENGINEERING</span>
+              <span className="telemetry-sep">/</span>
+              <span className="telemetry-session">
+                {isAdminLoggedIn ? "⚡ ADMIN SESSION ACTIVE" : "STUDENT ACCESS"}
+              </span>
+            </div>
+          </div>
+        </div>
 
       {/* ── NAV DRAWER ── */}
       {isNavMenuOpen && (
@@ -616,6 +618,7 @@ export default function App() {
           </div>
         </div>
       </footer>
+      </div>
 
       {/* ── TOAST ── */}
       {toast && (
