@@ -20,12 +20,6 @@ import { version as APP_VERSION } from "../package.json";
 
 const menuCards = [
   {
-    title: "Student Animations & CAD",
-    copy: "Explore student-uploaded interactive HTML kinematic animations and 3D CAD models.",
-    action: "Animations",
-    badge: "Student Works",
-  },
-  {
     title: "Mechanism Simulator Lab",
     copy: "Interactive four-bar simulator: adjust link lengths and watch how the mechanism moves in real time.",
     action: "VLab",
@@ -221,15 +215,6 @@ export default function App() {
       desc: "All mechanism models, kinematic simulations & data tables",
       badge: `${mechanisms.length} Models`,
       action: () => navigateTo("repository"),
-    },
-    {
-      id: "animations",
-      page: "animations",
-      icon: "⚙️",
-      title: "Animation & DOF Studio",
-      desc: "Kinematic motion models, Grübler mobility analysis & student simulations",
-      badge: "Motion & DOF",
-      action: () => navigateTo("animations", "#animations"),
     },
     {
       id: "submit",
@@ -462,13 +447,6 @@ export default function App() {
                 <div className="cta-row">
                   <button type="button" className="primary-btn" onClick={() => setIsNavMenuOpen(true)}>
                     Explore Menu ☰
-                  </button>
-                  <button
-                    type="button"
-                    className="secondary-btn secondary-btn--cyan"
-                    onClick={() => navigateTo("animations", "#animations")}
-                  >
-                    ⚙️ Animation &amp; DOF Studio
                   </button>
                   <button
                     type="button"
