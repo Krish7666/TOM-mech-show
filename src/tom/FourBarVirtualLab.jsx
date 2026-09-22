@@ -40,7 +40,9 @@ export default function FourBarVirtualLab({
 
   // Topology classification
   const mechType = useMemo(() => {
-    if (userSelectedType) return userSelectedType;
+    if (userSelectedType && ["fourbar", "slidercrank", "quickreturn", "steering"].includes(userSelectedType)) {
+      return userSelectedType;
+    }
     if (!activeMechanism) return "fourbar";
     const cat = (activeMechanism.category || "").toLowerCase();
     const nm = (activeMechanism.name || "").toLowerCase();
@@ -61,12 +63,6 @@ export default function FourBarVirtualLab({
       nm.includes("shaper")
     ) {
       return "quickreturn";
-    }
-    if (cat.includes("cam") || nm.includes("cam")) {
-      return "cam";
-    }
-    if (cat.includes("gear") || nm.includes("gear")) {
-      return "gear";
     }
     if (cat.includes("steering") || nm.includes("steering") || nm.includes("ackermann")) {
       return "steering";
@@ -691,20 +687,6 @@ export default function FourBarVirtualLab({
               onClick={() => handleSelectType("quickreturn")}
             >
               ↩️ Quick-Return
-            </button>
-            <button
-              type="button"
-              className={"vlab-pill" + (mechType === "cam" ? " vlab-pill--active" : "")}
-              onClick={() => handleSelectType("cam")}
-            >
-              🔵 Cam & Follower
-            </button>
-            <button
-              type="button"
-              className={"vlab-pill" + (mechType === "gear" ? " vlab-pill--active" : "")}
-              onClick={() => handleSelectType("gear")}
-            >
-              🛠️ Gear Train
             </button>
             <button
               type="button"
