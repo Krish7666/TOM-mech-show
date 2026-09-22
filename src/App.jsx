@@ -282,37 +282,39 @@ export default function App() {
 
       {/* ── HEADER ── */}
       <header className="site-header">
-        <button
-          type="button"
-          className="brand"
-          onClick={() => { navigateTo("home"); setIsNavMenuOpen(false); }}
-          aria-label="Go to home page"
-        >
-          <span className="brand-mark">
-            <TomLogo size={32} />
-          </span>
-          <span className="brand-copy">
-            <span className="brand-copy__eyebrow">NMIET</span>
-            <strong>Theory of Machines</strong>
-          </span>
-        </button>
-
-        <div className="site-header__actions">
-          {/* Hamburger Menu Toggle */}
+        <div className="site-header__inner">
           <button
             type="button"
-            className={`nav-menu-toggle${isNavMenuOpen ? " nav-menu-toggle--active" : ""}`}
-            onClick={() => setIsNavMenuOpen((prev) => !prev)}
-            aria-label={isNavMenuOpen ? "Close navigation menu" : "Open navigation menu"}
-            aria-expanded={isNavMenuOpen}
+            className="brand"
+            onClick={() => { navigateTo("home"); setIsNavMenuOpen(false); }}
+            aria-label="Go to home page"
           >
-            <span className="hamburger-icon" aria-hidden="true">
-              <span className="hamburger-bar" />
-              <span className="hamburger-bar" />
-              <span className="hamburger-bar" />
+            <span className="brand-mark">
+              <TomLogo size={32} />
             </span>
-            <span className="nav-menu-toggle__label">Menu</span>
+            <span className="brand-copy">
+              <span className="brand-copy__eyebrow">NMIET</span>
+              <strong>Theory of Machines</strong>
+            </span>
           </button>
+
+          <div className="site-header__actions">
+            {/* Hamburger Menu Toggle */}
+            <button
+              type="button"
+              className={`nav-menu-toggle${isNavMenuOpen ? " nav-menu-toggle--active" : ""}`}
+              onClick={() => setIsNavMenuOpen((prev) => !prev)}
+              aria-label={isNavMenuOpen ? "Close navigation menu" : "Open navigation menu"}
+              aria-expanded={isNavMenuOpen}
+            >
+              <span className="hamburger-icon" aria-hidden="true">
+                <span className="hamburger-bar" />
+                <span className="hamburger-bar" />
+                <span className="hamburger-bar" />
+              </span>
+              <span className="nav-menu-toggle__label">Menu</span>
+            </button>
+          </div>
         </div>
       </header>
 
