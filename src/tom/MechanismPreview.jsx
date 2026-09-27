@@ -48,11 +48,40 @@ export default function MechanismPreview({ mechanism, analysis: explicitAnalysis
       name.includes("piston") ||
       name.includes("crank-slider"));
 
+  const angleInputRef = useRef(null);
+  const angleTextRef = useRef(null);
+  const isVisibleRef = useRef(true);
+
   // State ref for animation loop
   const stateRef = useRef({ angle, isPlaying, speedMultiplier, canMove, showTrace });
   useEffect(() => {
     stateRef.current = { angle, isPlaying, speedMultiplier, canMove, showTrace };
   }, [angle, isPlaying, speedMultiplier, canMove, showTrace]);
+
+  // Track visibility / off-screen status to pause requestAnimationFrame
+  useEffect(() => {
+    const handleVis = () => {
+      isVisibleRef.current = !document.hidden;
+    };
+    document.addEventListener("visibilitychange", handleVis);
+
+    let observer = null;
+    const el = canvasRef.current?.parentElement;
+    if (el && window.IntersectionObserver) {
+      observer = new IntersectionObserver(
+        ([entry]) => {
+          isVisibleRef.current = entry.isIntersecting && !document.hidden;
+        },
+        { threshold: 0.05 }
+      );
+      observer.observe(el);
+    }
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVis);
+      if (observer) observer.disconnect();
+    };
+  }, []);
 
   // ─── RENDERERS PER MECHANISM TOPOLOGY ───────────────────────────────────────
 
@@ -504,21 +533,24 @@ export default function MechanismPreview({ mechanism, analysis: explicitAnalysis
 
   // ─── ANIMATION FRAME LOOP ──────────────────────────────────────────────────
   useEffect(() => {
-    let lastStateSync = 0;
     const loop = (time) => {
       if (lastTimeRef.current === null) lastTimeRef.current = time;
       const dt = (time - lastTimeRef.current) / 1000;
       lastTimeRef.current = time;
+
+      if (!isVisibleRef.current) {
+        animFrameRef.current = requestAnimationFrame(loop);
+        return;
+      }
 
       const { isPlaying: playing, canMove: movable, speedMultiplier: mult } = stateRef.current;
 
       if (movable && playing) {
         const next = (stateRef.current.angle + mult * dt * 75) % 360;
         stateRef.current.angle = next;
-        if (time - lastStateSync > 80) {
-          lastStateSync = time;
-          setAngle(Math.round(next));
-        }
+        const rounded = Math.round(next);
+        if (angleInputRef.current) angleInputRef.current.value = rounded;
+        if (angleTextRef.current) angleTextRef.current.textContent = `θ₂: ${rounded}°`;
       }
 
       drawCanvas();
@@ -604,19 +636,24 @@ export default function MechanismPreview({ mechanism, analysis: explicitAnalysis
 
       {/* Manual Crank Angle Scrubber */}
       <div style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 12 }}>
-        <span style={{ font: "700 0.72rem var(--font-mono)", color: "var(--muted)", textTransform: "uppercase" }}>
+        <span
+          ref={angleTextRef}
+          style={{ font: "700 0.72rem var(--font-mono)", color: "var(--muted)", textTransform: "uppercase" }}
+        >
           θ₂: {angle}°
         </span>
         <input
+          ref={angleInputRef}
           type="range"
           min="0"
           max="359"
-          value={angle}
+          defaultValue={angle}
           onChange={(e) => {
             setIsPlaying(false);
             const val = parseInt(e.target.value, 10);
             setAngle(val);
             stateRef.current.angle = val;
+            if (angleTextRef.current) angleTextRef.current.textContent = `θ₂: ${val}°`;
             drawCanvas();
           }}
           style={{ flex: 1, accentColor: KINEMATIC_COLORS.crank, height: 4 }}
@@ -628,7 +665,10 @@ export default function MechanismPreview({ mechanism, analysis: explicitAnalysis
           onClick={() => {
             setAngle(0);
             stateRef.current.angle = 0;
+            if (angleInputRef.current) angleInputRef.current.value = 0;
+            if (angleTextRef.current) angleTextRef.current.textContent = "θ₂: 0°";
             traceRef.current = [];
+            drawCanvas();
           }}
         >
           Reset 0°
