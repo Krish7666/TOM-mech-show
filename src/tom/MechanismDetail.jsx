@@ -251,6 +251,18 @@ export default function MechanismDetail({ id, isAdmin, onBack, onChanged }) {
     }
   }, [availableTabs, activeTab]);
 
+  const downloadableMedia = useMemo(() => {
+    return media.filter((row) => {
+      if (!row || !row.file_url) return false;
+      if (row.file_type === "animation" || row.format === "html") return false;
+      if (row.file_url.startsWith("data:") || row.file_url.includes("base64,")) return false;
+      const fn = (row.file_name || "").toLowerCase();
+      const fu = (row.file_url || "").toLowerCase();
+      if (fn.endsWith(".html") || fn.endsWith(".htm") || fu.includes(".html") || fu.includes(".htm")) return false;
+      return row.file_type === "document" || row.file_type === "cad";
+    });
+  }, [media]);
+
 
   async function handleDeleteMechanism() {
     if (!window.confirm("Delete this mechanism and all its media? This can't be undone.")) return;
@@ -445,15 +457,21 @@ export default function MechanismDetail({ id, isAdmin, onBack, onChanged }) {
         {mechanism.input_link && <SpecCard label="Driver Link" value={mechanism.input_link} />}
         {mechanism.output_link && <SpecCard label="Output Link" value={mechanism.output_link} />}
       </div>
-      {mechanism.additional_technical_details && (
-        <p className="tom-detail__extra-tech">{mechanism.additional_technical_details}</p>
-      )}
+      {(() => {
+        const rawNotes = mechanism.additional_technical_details;
+        let cleanNotes = "";
+        if (typeof rawNotes === "string" && !rawNotes.trim().startsWith("{")) {
+          cleanNotes = rawNotes.trim();
+        }
+        if (!cleanNotes || cleanNotes.startsWith("data:") || cleanNotes.includes("base64,")) return null;
+        return <p className="tom-detail__extra-tech">{cleanNotes}</p>;
+      })()}
 
-      {media.length > 0 && (
+      {downloadableMedia.length > 0 && (
         <>
-          <h2 className="tom-detail__section-title">Resources</h2>
+          <h2 className="tom-detail__section-title">Resources &amp; Attachments</h2>
           <div className="tom-resource-list">
-            {media.map((row) => (
+            {downloadableMedia.map((row) => (
               <ResourceRow key={row.id} row={row} isAdmin={isAdmin} onDelete={handleDeleteMedia} />
             ))}
           </div>

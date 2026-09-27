@@ -72,6 +72,11 @@ export function normalizeMechanism(mechanism) {
     image: mechanism.cover_image || mechanism.preview_image_url || mechanism.image || "",
     cover_image: mechanism.cover_image || mechanism.preview_image_url || mechanism.image || "",
     background_image: mechanism.background_image || mechanism.bg_image_url || "",
+    additional_technical_details: typeof techMeta.notes === "string"
+      ? techMeta.notes.trim()
+      : (typeof mechanism.additional_technical_details === "string" && !mechanism.additional_technical_details.trim().startsWith("{")
+          ? mechanism.additional_technical_details.trim()
+          : ""),
   };
 }
 

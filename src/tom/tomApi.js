@@ -269,18 +269,6 @@ export async function fetchMechanismDetail(id) {
     const rawImage = norm.cover_image || norm.image;
     const cleanImage = rawImage && typeof rawImage === "string" && !rawImage.startsWith("data:image/svg+xml") ? rawImage : null;
     const localMedia = Array.isArray(norm.media) ? [...norm.media] : [];
-    if (norm.html_animation_url && !localMedia.some((m) => m.file_url === norm.html_animation_url)) {
-      localMedia.unshift({
-        id: "media-html-anim-" + targetId,
-        mechanism_id: targetId,
-        file_type: "animation",
-        file_name: "Interactive HTML Mechanism Animation",
-        file_url: norm.html_animation_url,
-        format: "html",
-        is_embed: true,
-        is_html: true,
-      });
-    }
     return { mechanism: { ...norm, cover_image: cleanImage, preview_image_url: cleanImage }, media: localMedia, error: null };
   }
 
@@ -297,18 +285,6 @@ export async function fetchMechanismDetail(id) {
         const rawImage = norm.cover_image || norm.image;
         const cleanImage = rawImage && typeof rawImage === "string" && !rawImage.startsWith("data:image/svg+xml") ? rawImage : null;
         const mediaList = Array.isArray(media) ? [...media] : [];
-        if (norm.html_animation_url && !mediaList.some((m) => m.file_url === norm.html_animation_url)) {
-          mediaList.unshift({
-            id: "media-html-anim-" + id,
-            mechanism_id: id,
-            file_type: "animation",
-            file_name: "Interactive HTML Mechanism Animation",
-            file_url: norm.html_animation_url,
-            format: "html",
-            is_embed: true,
-            is_html: true,
-          });
-        }
         return { mechanism: { ...norm, cover_image: cleanImage, preview_image_url: cleanImage }, media: mediaList, error: mechError || mediaError };
       }
     } catch {
