@@ -217,7 +217,15 @@ export async function fetchApprovedMechanisms() {
 
 /** Admin moderation queue: returns pending mechanisms from local storage and Supabase. */
 export async function fetchPendingMechanisms() {
-  const localPending = getLocalMechanisms().filter((m) => m.status === MECHANISM_STATUS.PENDING);
+  const allLocal = getLocalMechanisms();
+  const localPending = allLocal.filter((m) => m.status === MECHANISM_STATUS.PENDING);
+  // Track locally resolved (approved/rejected) IDs so they don't falsely reappear if remote is lagging
+  const resolvedLocalIds = new Set(
+    allLocal
+      .filter((m) => m.status && m.status !== MECHANISM_STATUS.PENDING)
+      .map((m) => String(m.id))
+  );
+
   let supabasePending = [];
   let error = null;
 
@@ -238,8 +246,9 @@ export async function fetchPendingMechanisms() {
   const seenIds = new Set(localPending.map((m) => String(m.id)));
   const merged = [...localPending];
   for (const item of supabasePending) {
-    if (!seenIds.has(String(item.id))) {
-      seenIds.add(String(item.id));
+    const key = String(item.id);
+    if (!seenIds.has(key) && !resolvedLocalIds.has(key)) {
+      seenIds.add(key);
       merged.push(item);
     }
   }
@@ -601,13 +610,25 @@ export async function approveMechanism(id) {
   let dbError = null;
   if (supabase) {
     try {
+      // 1. Core update: set status to approved
       const { error } = await supabase
         .from(MECHANISMS_TABLE)
-        .update({ status: MECHANISM_STATUS.APPROVED, admin_feedback: null })
+        .update({ status: MECHANISM_STATUS.APPROVED })
         .eq("id", id);
+
       if (error) {
         dbError = error;
         console.error("Supabase approve error:", error.message || error);
+      } else {
+        // 2. Opportunistically clear admin_feedback if the column exists in Supabase
+        try {
+          await supabase
+            .from(MECHANISMS_TABLE)
+            .update({ admin_feedback: null })
+            .eq("id", id);
+        } catch {
+          // Column may not exist in remote schema cache; ignore
+        }
       }
     } catch (err) {
       dbError = err;
@@ -630,13 +651,25 @@ export async function rejectMechanism(id, feedback = "") {
   let dbError = null;
   if (supabase) {
     try {
-      const { error } = await supabase
+      // Attempt update with admin_feedback
+      let { error } = await supabase
         .from(MECHANISMS_TABLE)
         .update({
           status: MECHANISM_STATUS.REJECTED,
           admin_feedback: feedback ? feedback.trim() : null,
         })
         .eq("id", id);
+
+      // If remote table lacks admin_feedback column (PGRST204), fallback to updating status only
+      if (error && (error.code === "PGRST204" || error.message?.includes("admin_feedback"))) {
+        console.warn("Supabase schema missing admin_feedback column; retrying rejection with status only:", error.message);
+        const retryRes = await supabase
+          .from(MECHANISMS_TABLE)
+          .update({ status: MECHANISM_STATUS.REJECTED })
+          .eq("id", id);
+        error = retryRes.error;
+      }
+
       if (error) {
         dbError = error;
         console.error("Supabase reject error:", error.message || error);
@@ -661,7 +694,13 @@ export async function updateMechanism(id, fields) {
   let dbError = null;
   if (supabase) {
     try {
-      const { error } = await supabase.from(MECHANISMS_TABLE).update(fields).eq("id", id);
+      let { error } = await supabase.from(MECHANISMS_TABLE).update(fields).eq("id", id);
+      if (error && error.code === "PGRST204") {
+        console.warn("Supabase update schema mismatch. Retrying with core fields:", error.message);
+        const { admin_feedback, tracking_code, ...coreFields } = fields;
+        const retryRes = await supabase.from(MECHANISMS_TABLE).update(coreFields).eq("id", id);
+        error = retryRes.error;
+      }
       if (error) {
         dbError = error;
         console.error("Supabase update error:", error.message || error);
