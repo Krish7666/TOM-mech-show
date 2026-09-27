@@ -561,6 +561,18 @@ export default function App() {
               </div>
             </section>
 
+            {/* MOBILITY & DOF SIMULATOR SECTION */}
+            <section className="home-workbench-section" style={{ marginTop: 40, marginBottom: 40 }}>
+              <div className="home-section-header">
+                <span className="home-section-tag">Interactive Mobility Engine</span>
+                <h2 className="home-section-title">Mechanism Mobility &amp; DOF Calculator</h2>
+                <p className="home-section-desc">
+                  Explore how adjusting links, joints, and higher pairs changes mechanism degrees of freedom.
+                </p>
+              </div>
+              <KinematicWorkbench />
+            </section>
+
             {/* CURRICULUM FOUNDATIONS SECTION */}
             <section className="home-pillars-section">
               <div className="home-section-header">

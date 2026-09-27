@@ -87,16 +87,6 @@ export default function KinematicWorkbench({ initialMechanism = null, onApply = 
                   {preset.name}
                 </button>
               ))}
-              {selectedPreset === "Four-Bar Linkage" && (
-                <button
-                  type="button"
-                  className="button button--secondary button--toolbar"
-                  style={{ fontSize: "0.78rem", padding: "4px 12px", borderColor: "rgba(56, 189, 248, 0.4)", color: "#38bdf8", marginLeft: "auto" }}
-                  onClick={() => { window.location.hash = "vlab"; }}
-                >
-                  🔬 Launch Four-Bar Virtual Lab →
-                </button>
-              )}
             </div>
           </div>
 
