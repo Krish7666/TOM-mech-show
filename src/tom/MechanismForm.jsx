@@ -4,7 +4,6 @@ import {
   ACCEPT,
   ACADEMIC_YEARS,
   TOM_CATEGORIES,
-  MOTION_TYPES,
 } from "./tomConstants";
 import { validateUploadFile } from "./tomApi";
 
@@ -528,44 +527,6 @@ export default function MechanismForm({
             Mobility: {calculatedDof} DOF {calculatedDof === 1 ? "(Constrained Mechanism)" : calculatedDof === 0 ? "(Structure / Frame)" : "(Multi-Degree of Freedom)"}
           </div>
         </div>
-
-        <label className="field">
-          <span className="field__label">Motion Type</span>
-          <select
-            className="field__control"
-            name="motion_type"
-            value={form.motion_type}
-            onChange={handleChange}
-          >
-            {MOTION_TYPES.map((type) => (
-              <option key={type} value={type}>
-                {type}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <label className="field">
-          <span className="field__label">Input Link / Driver</span>
-          <input
-            className="field__control"
-            name="input_link"
-            placeholder="e.g. Link 1 (Driver / Crank)"
-            value={form.input_link || ""}
-            onChange={handleChange}
-          />
-        </label>
-
-        <label className="field">
-          <span className="field__label">Output Link / Follower</span>
-          <input
-            className="field__control"
-            name="output_link"
-            placeholder="e.g. Output / Rocker / Slider"
-            value={form.output_link || ""}
-            onChange={handleChange}
-          />
-        </label>
       </div>
 
       {/* SECTION 4: THUMBNAIL & BACKGROUND IMAGES */}
