@@ -4,8 +4,6 @@ import MechanismPreview from "./MechanismPreview";
 
 const PRESETS = [
   { name: "Four-Bar Linkage", links: 4, joints: 4, higherPairs: 0, category: "Linkages" },
-  { name: "Slider-Crank Linkage", links: 4, joints: 4, higherPairs: 0, category: "Slider-crank" },
-  { name: "Ackermann Steering", links: 6, joints: 7, higherPairs: 0, category: "Steering mechanisms" },
 ];
 
 export default function KinematicWorkbench({ initialMechanism = null, onApply = null }) {
