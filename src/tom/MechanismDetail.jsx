@@ -352,13 +352,6 @@ export default function MechanismDetail({ id, isAdmin, onBack, onChanged }) {
           >
             {copied ? "✓ Link Copied!" : "🔗 Share Link"}
           </button>
-          <button
-            type="button"
-            className="secondary-btn secondary-btn--small"
-            onClick={() => window.print()}
-          >
-            🖨 Print Specs
-          </button>
         </div>
       </div>
 
