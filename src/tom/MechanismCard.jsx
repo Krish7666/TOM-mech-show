@@ -43,7 +43,8 @@ const MechanismCard = memo(function MechanismCard({ mechanism, onView }) {
   };
   const cardGradient = categoryGradients[category] || categoryGradients["Other"];
 
-  const showFallback = !coverImage || imgError;
+  const displayCover = coverImage || bgImage;
+  const showFallback = !displayCover || imgError;
 
   return (
     <article
@@ -60,7 +61,7 @@ const MechanismCard = memo(function MechanismCard({ mechanism, onView }) {
       style={{
         cursor: "pointer",
         ...(bgImage ? {
-          backgroundImage: `linear-gradient(180deg, rgba(12, 18, 32, 0.72) 0%, rgba(12, 18, 32, 0.94) 100%), url(${bgImage})`,
+          backgroundImage: `linear-gradient(180deg, rgba(12, 18, 32, 0.76) 0%, rgba(12, 18, 32, 0.95) 100%), url(${bgImage})`,
           backgroundSize: "cover",
           backgroundPosition: "center",
         } : {})
@@ -75,13 +76,40 @@ const MechanismCard = memo(function MechanismCard({ mechanism, onView }) {
         } : {}}
       >
         {!showFallback ? (
-          <img
-            className="tom-card__image"
-            src={coverImage}
-            alt={mechanism.name}
-            loading="lazy"
-            onError={() => setImgError(true)}
-          />
+          <div style={{ position: "relative", width: "100%", height: "100%", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center", background: "#090e18" }}>
+            <img
+              src={displayCover}
+              alt=""
+              aria-hidden
+              style={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                width: "100%",
+                height: "100%",
+                objectFit: "cover",
+                objectPosition: "center",
+                filter: "blur(18px) brightness(0.38)",
+                transform: "scale(1.2)",
+              }}
+            />
+            <img
+              className="tom-card__image"
+              src={displayCover}
+              alt={mechanism.name}
+              loading="lazy"
+              onError={() => setImgError(true)}
+              style={{
+                position: "relative",
+                zIndex: 1,
+                width: "100%",
+                height: "100%",
+                objectFit: "contain",
+                objectPosition: "center",
+                display: "block",
+              }}
+            />
+          </div>
         ) : (
           <div
             className="tom-card__clean-banner"

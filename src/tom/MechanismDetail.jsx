@@ -323,7 +323,9 @@ export default function MechanismDetail({ id, isAdmin, onBack, onChanged }) {
     );
   }
 
-  const meta = tomCategoryMeta(mechanism.category);
+  const bgImg =
+    (mechanism.background_image && typeof mechanism.background_image === "string" && !mechanism.background_image.startsWith("data:image/svg+xml") ? mechanism.background_image : null) ||
+    (mechanism.bg_image_url && typeof mechanism.bg_image_url === "string" && !mechanism.bg_image_url.startsWith("data:image/svg+xml") ? mechanism.bg_image_url : null);
 
   return (
     <section className="tom-detail">
@@ -361,7 +363,17 @@ export default function MechanismDetail({ id, isAdmin, onBack, onChanged }) {
         </div>
       )}
 
-      <header className="tom-detail__header" style={{ "--card-accent": meta.color }}>
+      <header
+        className="tom-detail__header"
+        style={{
+          "--card-accent": meta.color,
+          ...(bgImg ? {
+            backgroundImage: `linear-gradient(180deg, rgba(8, 12, 22, 0.84) 0%, rgba(8, 12, 22, 0.96) 100%), url(${bgImg})`,
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+          } : {})
+        }}
+      >
         <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: 8 }}>
           <div className="tom-detail__category-badge">
             <span>{meta.icon}</span><span>{mechanism.category || "Other"}</span>
@@ -734,7 +746,13 @@ function StudentCustomAnimationViewer({ htmlUrl, mechanism, onReload, reloadKey 
 }
 
 function OverviewPanel({ mechanism, htmlAnimationUrl, onOpenAnimation }) {
-  const rawCover = mechanism.cover_image || mechanism.preview_image_url || mechanism.image || null;
+  const rawCover =
+    mechanism.cover_image ||
+    mechanism.preview_image_url ||
+    mechanism.image ||
+    mechanism.background_image ||
+    mechanism.bg_image_url ||
+    null;
   const cover =
     rawCover && typeof rawCover === "string" && !rawCover.startsWith("data:image/svg+xml")
       ? rawCover
@@ -780,14 +798,52 @@ function OverviewPanel({ mechanism, htmlAnimationUrl, onOpenAnimation }) {
       )}
 
       {cover && (
-        <div className="tom-overview__media-hero" style={{ marginBottom: 20, borderRadius: 16, overflow: "hidden", border: "1px solid var(--border)", maxHeight: 380, background: "rgba(0,0,0,0.2)" }}>
+        <div
+          className="tom-overview__media-hero"
+          style={{
+            position: "relative",
+            marginBottom: 20,
+            borderRadius: 16,
+            overflow: "hidden",
+            border: "1px solid var(--border)",
+            minHeight: 240,
+            maxHeight: 460,
+            background: "#080c18",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <img
+            src={cover}
+            alt=""
+            aria-hidden
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+              filter: "blur(22px) brightness(0.35)",
+              transform: "scale(1.18)",
+            }}
+          />
           <img
             src={cover}
             alt={mechanism.name}
             onError={(e) => {
               e.currentTarget.style.display = "none";
             }}
-            style={{ width: "100%", maxHeight: 380, objectFit: "cover", display: "block" }}
+            style={{
+              position: "relative",
+              zIndex: 1,
+              width: "100%",
+              maxHeight: 460,
+              objectFit: "contain",
+              objectPosition: "center",
+              display: "block",
+            }}
           />
         </div>
       )}

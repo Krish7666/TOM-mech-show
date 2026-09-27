@@ -213,6 +213,36 @@ export default function MechanismForm({
     }
   }
 
+  function handleBgUrlChange(e) {
+    const val = e.target.value;
+    setBgImageUrl(val);
+    if (val.trim()) {
+      setBgImagePreview(val.trim());
+    }
+  }
+
+  function handleClearCover() {
+    setImagePreview("");
+    setImageUrlInput("");
+    setForm((cur) => ({ ...cur, cover_image: null, preview_image_url: null }));
+    setFiles((cur) => {
+      const copy = { ...cur };
+      delete copy.image;
+      return copy;
+    });
+  }
+
+  function handleClearBackground() {
+    setBgImagePreview("");
+    setBgImageUrl("");
+    setForm((cur) => ({ ...cur, background_image: null, bg_image_url: null }));
+    setFiles((cur) => {
+      const copy = { ...cur };
+      delete copy.background_image;
+      return copy;
+    });
+  }
+
   // Calculate live Grubler DOF
   const numLinks = Math.max(1, parseInt(form.num_links || "4", 10) || 4);
   const numJoints = Math.max(0, parseInt(form.num_joints || "4", 10) || 4);
@@ -537,66 +567,203 @@ export default function MechanismForm({
         Add a photo of your mechanism. This image directly represents your model on the showcase card and header.
       </p>
 
-      {/* Live Thumbnail Preview */}
-      {(imagePreview || bgImageUrl || bgImagePreview) && (
+      {/* Live Previews: Thumbnail / Cover Photo & Background Backdrop */}
+      <div style={{
+        display: "grid",
+        gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+        gap: "18px",
+        marginBottom: "20px"
+      }}>
+        {/* Cover Photo / Thumbnail Box */}
         <div style={{
-          display: "flex",
-          gap: "16px",
-          alignItems: "center",
-          padding: "14px 18px",
-          background: (bgImagePreview || bgImageUrl)
-            ? `linear-gradient(rgba(12, 16, 26, 0.78), rgba(12, 16, 26, 0.94)), url(${bgImagePreview || bgImageUrl}) center/cover no-repeat`
-            : "rgba(251, 191, 36, 0.08)",
-          border: "1px solid rgba(251, 191, 36, 0.3)",
+          background: "rgba(10, 15, 29, 0.75)",
+          border: imagePreview ? "1px solid rgba(56, 189, 248, 0.45)" : "1px dashed rgba(255, 255, 255, 0.15)",
           borderRadius: "16px",
-          marginBottom: "16px",
-          position: "relative",
-          overflow: "hidden"
+          padding: "14px",
+          display: "flex",
+          flexDirection: "column",
+          gap: "10px"
         }}>
-          {imagePreview && (
-            <img
-              src={imagePreview}
-              alt="Thumbnail preview"
-              style={{
-                width: "110px",
-                height: "75px",
-                borderRadius: "10px",
-                objectFit: "cover",
-                border: "1px solid rgba(255,255,255,0.2)",
-                boxShadow: "0 4px 12px rgba(0,0,0,0.4)"
-              }}
-            />
-          )}
-          <div style={{ flex: 1 }}>
-            <strong style={{ display: "block", fontSize: "0.9rem", color: "#f8fafc", marginBottom: "4px" }}>
-              ✓ Cover Photo Set {(bgImageUrl || bgImagePreview) && "+ Background Backdrop Ready"}
-            </strong>
-            <p style={{ margin: 0, fontSize: "0.82rem", color: "var(--muted)" }}>
-              {imagePreview ? "Mechanism card image is active." : "Card background is set."}
-            </p>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span style={{ fontSize: "0.85rem", fontWeight: 700, color: "#38bdf8", display: "flex", alignItems: "center", gap: "6px" }}>
+              🖼️ Thumbnail / Cover Photo
+            </span>
+            {imagePreview && (
+              <button
+                type="button"
+                className="button button--ghost"
+                style={{ padding: "3px 10px", fontSize: "0.74rem", height: "auto" }}
+                onClick={handleClearCover}
+              >
+                ✕ Remove
+              </button>
+            )}
           </div>
-          <button
-            type="button"
-            className="button button--ghost"
-            style={{ padding: "6px 14px", fontSize: "0.78rem", height: "auto" }}
-            onClick={() => {
-              setImagePreview("");
-              setImageUrlInput("");
-              setBgImageUrl("");
-              setBgImagePreview("");
-              setForm((cur) => ({ ...cur, cover_image: null, background_image: null }));
-              setFiles((cur) => {
-                const copy = { ...cur };
-                delete copy.image;
-                delete copy.background_image;
-                return copy;
-              });
-            }}
-          >
-            ✕ Reset Visuals
-          </button>
+
+          <div style={{
+            height: "190px",
+            borderRadius: "12px",
+            overflow: "hidden",
+            position: "relative",
+            background: "#070b14",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            border: "1px solid rgba(255, 255, 255, 0.08)"
+          }}>
+            {imagePreview ? (
+              <>
+                {/* Ambient backdrop layer */}
+                <img
+                  src={imagePreview}
+                  alt=""
+                  aria-hidden
+                  style={{
+                    position: "absolute",
+                    inset: 0,
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "cover",
+                    filter: "blur(18px) brightness(0.35)",
+                    transform: "scale(1.2)",
+                  }}
+                />
+                {/* Foreground perfectly fitted image */}
+                <img
+                  src={imagePreview}
+                  alt="Cover Preview"
+                  style={{
+                    position: "relative",
+                    zIndex: 1,
+                    maxWidth: "100%",
+                    maxHeight: "100%",
+                    width: "auto",
+                    height: "auto",
+                    objectFit: "contain",
+                    objectPosition: "center",
+                    display: "block",
+                  }}
+                />
+                <span style={{
+                  position: "absolute",
+                  bottom: "8px",
+                  right: "8px",
+                  zIndex: 2,
+                  background: "rgba(0, 0, 0, 0.75)",
+                  color: "#38bdf8",
+                  padding: "2px 8px",
+                  borderRadius: "6px",
+                  fontSize: "0.72rem",
+                  fontWeight: 600,
+                  backdropFilter: "blur(6px)"
+                }}>
+                  ✓ Fitted 100%
+                </span>
+              </>
+            ) : (
+              <div style={{ textAlign: "center", color: "var(--muted)", padding: "16px" }}>
+                <span style={{ fontSize: "2rem", display: "block", marginBottom: "6px" }}>📷</span>
+                <span style={{ fontSize: "0.82rem" }}>No thumbnail selected yet</span>
+              </div>
+            )}
+          </div>
         </div>
-      )}
+
+        {/* Background Backdrop Box */}
+        <div style={{
+          background: "rgba(10, 15, 29, 0.75)",
+          border: (bgImagePreview || bgImageUrl) ? "1px solid rgba(168, 85, 247, 0.45)" : "1px dashed rgba(255, 255, 255, 0.15)",
+          borderRadius: "16px",
+          padding: "14px",
+          display: "flex",
+          flexDirection: "column",
+          gap: "10px"
+        }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span style={{ fontSize: "0.85rem", fontWeight: 700, color: "#c084fc", display: "flex", alignItems: "center", gap: "6px" }}>
+              🎨 Background Backdrop (Optional)
+            </span>
+            {(bgImagePreview || bgImageUrl) && (
+              <button
+                type="button"
+                className="button button--ghost"
+                style={{ padding: "3px 10px", fontSize: "0.74rem", height: "auto" }}
+                onClick={handleClearBackground}
+              >
+                ✕ Remove
+              </button>
+            )}
+          </div>
+
+          <div style={{
+            height: "190px",
+            borderRadius: "12px",
+            overflow: "hidden",
+            position: "relative",
+            background: "#070b14",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            border: "1px solid rgba(255, 255, 255, 0.08)"
+          }}>
+            {(bgImagePreview || bgImageUrl) ? (
+              <>
+                {/* Ambient backdrop */}
+                <img
+                  src={bgImagePreview || bgImageUrl}
+                  alt=""
+                  aria-hidden
+                  style={{
+                    position: "absolute",
+                    inset: 0,
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "cover",
+                    filter: "blur(18px) brightness(0.35)",
+                    transform: "scale(1.2)",
+                  }}
+                />
+                {/* Foreground perfectly fitted image */}
+                <img
+                  src={bgImagePreview || bgImageUrl}
+                  alt="Backdrop Preview"
+                  style={{
+                    position: "relative",
+                    zIndex: 1,
+                    maxWidth: "100%",
+                    maxHeight: "100%",
+                    width: "auto",
+                    height: "auto",
+                    objectFit: "contain",
+                    objectPosition: "center",
+                    display: "block",
+                  }}
+                />
+                <span style={{
+                  position: "absolute",
+                  bottom: "8px",
+                  right: "8px",
+                  zIndex: 2,
+                  background: "rgba(0, 0, 0, 0.75)",
+                  color: "#c084fc",
+                  padding: "2px 8px",
+                  borderRadius: "6px",
+                  fontSize: "0.72rem",
+                  fontWeight: 600,
+                  backdropFilter: "blur(6px)"
+                }}>
+                  ✓ Fitted 100%
+                </span>
+              </>
+            ) : (
+              <div style={{ textAlign: "center", color: "var(--muted)", padding: "16px" }}>
+                <span style={{ fontSize: "2rem", display: "block", marginBottom: "6px" }}>🌄</span>
+                <span style={{ fontSize: "0.82rem" }}>No backdrop selected (Optional)</span>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
 
       <div className="project-form__grid">
         <label className="field">
@@ -645,7 +812,7 @@ export default function MechanismForm({
             name="background_image"
             placeholder="https://... direct image link"
             value={bgImageUrl}
-            onChange={(e) => setBgImageUrl(e.target.value)}
+            onChange={handleBgUrlChange}
           />
         </label>
       </div>

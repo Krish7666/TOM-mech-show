@@ -119,7 +119,8 @@
 .tom-card__image {
   width: 100% !important;
   height: 100% !important;
-  object-fit: cover !important;
+  object-fit: contain !important;
+  object-position: center !important;
   display: block !important;
   transition: transform 0.35s ease;
 }
