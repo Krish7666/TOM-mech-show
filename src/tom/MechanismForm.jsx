@@ -402,26 +402,18 @@ export default function MechanismForm({
       </div>
 
       <div className="project-form__grid">
-        <label className="field">
-          <span className="field__label">Lead Contributor / Author Name *</span>
+        <label className="field" style={{ gridColumn: "span 2" }}>
+          <span className="field__label">Student / Team Members *</span>
           <input
             className="field__control"
             name="student_name"
-            placeholder="e.g. Aarav Patil"
+            placeholder="e.g. Aarav Patil, Sakshi Verma, Rahul Shinde (or single student name)"
             value={form.student_name}
-            onChange={handleChange}
+            onChange={(e) => {
+              const val = e.target.value;
+              setForm((cur) => ({ ...cur, student_name: val, team_members: val }));
+            }}
             required
-          />
-        </label>
-
-        <label className="field">
-          <span className="field__label">Team Members / All Contributors</span>
-          <input
-            className="field__control"
-            name="team_members"
-            placeholder="e.g. Aarav Patil, Sakshi Verma, Rahul Shinde"
-            value={form.team_members}
-            onChange={handleChange}
           />
         </label>
 
