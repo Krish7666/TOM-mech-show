@@ -2,6 +2,7 @@ import { supabase } from "../lib/supabaseClient";
 import {
   MECHANISM_STATUS,
 } from "./tomConstants";
+import { normalizeMechanism } from "./mechanismUtils";
 
 const MECHANISMS_TABLE = "tom_mechanisms";
 const MEDIA_TABLE      = "tom_mechanism_media";
@@ -264,12 +265,26 @@ export async function fetchMechanismDetail(id) {
   const localItems = getLocalMechanisms();
   const local = localItems.find((m) => String(m.id) === targetId);
   if (local) {
-    const rawImage = local.cover_image || local.image;
+    const norm = normalizeMechanism(local);
+    const rawImage = norm.cover_image || norm.image;
     const cleanImage = rawImage && typeof rawImage === "string" && !rawImage.startsWith("data:image/svg+xml") ? rawImage : null;
-    return { mechanism: { ...local, cover_image: cleanImage, preview_image_url: cleanImage }, media: local.media || [], error: null };
+    const localMedia = Array.isArray(norm.media) ? [...norm.media] : [];
+    if (norm.html_animation_url && !localMedia.some((m) => m.file_url === norm.html_animation_url)) {
+      localMedia.unshift({
+        id: "media-html-anim-" + targetId,
+        mechanism_id: targetId,
+        file_type: "animation",
+        file_name: "Interactive HTML Mechanism Animation",
+        file_url: norm.html_animation_url,
+        format: "html",
+        is_embed: true,
+        is_html: true,
+      });
+    }
+    return { mechanism: { ...norm, cover_image: cleanImage, preview_image_url: cleanImage }, media: localMedia, error: null };
   }
 
-  // 3. Check Supabase
+  // 2. Check Supabase
   if (supabase) {
     try {
       const [{ data: mechanism, error: mechError }, { data: media, error: mediaError }] =
@@ -278,9 +293,23 @@ export async function fetchMechanismDetail(id) {
           supabase.from(MEDIA_TABLE).select("*").eq("mechanism_id", id).order("created_at", { ascending: true }),
         ]);
       if (mechanism) {
-        const rawImage = mechanism.cover_image || mechanism.image;
+        const norm = normalizeMechanism(mechanism);
+        const rawImage = norm.cover_image || norm.image;
         const cleanImage = rawImage && typeof rawImage === "string" && !rawImage.startsWith("data:image/svg+xml") ? rawImage : null;
-        return { mechanism: { ...mechanism, cover_image: cleanImage, preview_image_url: cleanImage }, media: media || [], error: mechError || mediaError };
+        const mediaList = Array.isArray(media) ? [...media] : [];
+        if (norm.html_animation_url && !mediaList.some((m) => m.file_url === norm.html_animation_url)) {
+          mediaList.unshift({
+            id: "media-html-anim-" + id,
+            mechanism_id: id,
+            file_type: "animation",
+            file_name: "Interactive HTML Mechanism Animation",
+            file_url: norm.html_animation_url,
+            format: "html",
+            is_embed: true,
+            is_html: true,
+          });
+        }
+        return { mechanism: { ...norm, cover_image: cleanImage, preview_image_url: cleanImage }, media: mediaList, error: mechError || mediaError };
       }
     } catch {
       // ignore
@@ -386,6 +415,27 @@ export async function submitMechanism(formValues, filesByType, { approved = true
 
   const localId = "student-" + Date.now();
 
+  const linksSet = new Set();
+  if (htmlAnim) linksSet.add(htmlAnim);
+  if (formValues.video_url?.trim()) linksSet.add(formValues.video_url.trim());
+  if (formValues.video?.trim()) linksSet.add(formValues.video.trim());
+  if (formValues.virtual_mechanism_url?.trim()) linksSet.add(formValues.virtual_mechanism_url.trim());
+  if (Array.isArray(formValues.external_links)) {
+    formValues.external_links.forEach((l) => { if (l && typeof l === "string") linksSet.add(l.trim()); });
+  }
+  const finalExternalLinks = Array.from(linksSet);
+
+  const techDetailsObj = {
+    notes: formValues.additional_technical_details || "",
+    html_animation_url: htmlAnim || null,
+    animation_url: htmlAnim || formValues.animation_url || null,
+    virtual_mechanism_url: formValues.virtual_mechanism_url || null,
+    video_url: formValues.video_url || formValues.video || null,
+    motion_type: formValues.motion_type || "Oscillating / Rocker",
+    applications: formValues.applications || null,
+  };
+  const finalTechDetails = JSON.stringify(techDetailsObj);
+
   const localMech = {
     id: localId,
     admin_feedback: null,
@@ -393,34 +443,25 @@ export async function submitMechanism(formValues, filesByType, { approved = true
     category: formValues.category || "Four-bar",
     short_description: formValues.short_description || (formValues.description ? (formValues.description.slice(0, 140) + (formValues.description.length > 140 ? "..." : "")) : "Student mechanism project."),
     detailed_description: formValues.detailed_description || formValues.description || "",
-    working_principle: formValues.working_principle || formValues.description || "",
+    working_principle: formValues.working_principle || formValues.detailed_description || formValues.description || "",
     applications: formValues.applications || null,
     num_links: links,
     num_joints: joints,
     higher_pairs: higherPairs,
     degrees_of_freedom: dof,
-    input_link: formValues.input_link || "Link 1 (Driver)",
+    input_link: formValues.input_link || "Link 1 (Driver / Crank)",
     output_link: formValues.output_link || "Output / Rocker",
-    additional_technical_details: formValues.additional_technical_details || null,
+    additional_technical_details: finalTechDetails,
     student_name: formValues.student_name.trim(),
     team_members: formValues.team_members || null,
-    department: "Mechanical Engineering",
-    college: "NMIET",
+    department: formValues.department || "Mechanical Engineering",
+    college: formValues.college || "NMIET",
     academic_year: formValues.academic_year || "TE Mech",
     motion_type: formValues.motion_type || "Oscillating / Rocker",
     html_animation_url: htmlAnim || null,
     animation_url: htmlAnim || (formValues.animation_url ? formValues.animation_url.trim() : null),
     virtual_mechanism_url: formValues.virtual_mechanism_url ? formValues.virtual_mechanism_url.trim() : null,
-    external_links: [
-      ...(htmlAnim ? [htmlAnim] : []),
-      ...(formValues.video_url ? [formValues.video_url.trim()] : []),
-      ...(formValues.virtual_mechanism_url ? [formValues.virtual_mechanism_url.trim()] : []),
-      ...(Array.isArray(formValues.external_links)
-        ? formValues.external_links
-        : typeof formValues.external_links === "string" && formValues.external_links.trim()
-        ? formValues.external_links.split(",").map((s) => s.trim()).filter(Boolean)
-        : []),
-    ],
+    external_links: finalExternalLinks,
     status: approved !== false ? MECHANISM_STATUS.APPROVED : MECHANISM_STATUS.PENDING,
     cover_image: localCoverImage,
     preview_image_url: localCoverImage,
@@ -451,20 +492,16 @@ export async function submitMechanism(formValues, filesByType, { approved = true
         degrees_of_freedom:            localMech.degrees_of_freedom,
         input_link:                    localMech.input_link,
         output_link:                   localMech.output_link,
-        additional_technical_details:  localMech.additional_technical_details,
+        additional_technical_details:  finalTechDetails,
         student_name:                  localMech.student_name,
         team_members:                  localMech.team_members,
         department:                    localMech.department,
         college:                       localMech.college,
         academic_year:                 localMech.academic_year,
-        external_links:                localMech.external_links,
+        external_links:                finalExternalLinks,
         status:                        approved !== false ? MECHANISM_STATUS.APPROVED : MECHANISM_STATUS.PENDING,
         cover_image:                   localCoverImage,
       };
-
-      // Only include optional fields if they have truthy values
-      if (localMech.admin_feedback) payload.admin_feedback = localMech.admin_feedback;
-      if (localMech.tracking_code) payload.tracking_code = localMech.tracking_code;
 
       let { data: remoteMech, error: dbError } = await supabase
         .from(MECHANISMS_TABLE)
@@ -476,22 +513,26 @@ export async function submitMechanism(formValues, filesByType, { approved = true
       if (dbError && dbError.code === "PGRST204") {
         console.warn("Supabase schema column mismatch. Retrying insert with core columns:", dbError.message);
         const corePayload = {
-          name: localMech.name,
-          category: localMech.category,
-          short_description: localMech.short_description,
-          detailed_description: localMech.detailed_description,
-          working_principle: localMech.working_principle,
-          num_links: localMech.num_links,
-          num_joints: localMech.num_joints,
-          degrees_of_freedom: localMech.degrees_of_freedom,
-          input_link: localMech.input_link,
-          output_link: localMech.output_link,
-          student_name: localMech.student_name,
-          department: localMech.department,
-          college: localMech.college,
-          academic_year: localMech.academic_year,
-          status: approved !== false ? MECHANISM_STATUS.APPROVED : MECHANISM_STATUS.PENDING,
-          cover_image: localCoverImage,
+          name:                          localMech.name,
+          category:                      localMech.category,
+          short_description:             localMech.short_description,
+          detailed_description:          localMech.detailed_description,
+          working_principle:             localMech.working_principle,
+          applications:                  localMech.applications,
+          num_links:                     localMech.num_links,
+          num_joints:                    localMech.num_joints,
+          degrees_of_freedom:            localMech.degrees_of_freedom,
+          input_link:                    localMech.input_link,
+          output_link:                   localMech.output_link,
+          student_name:                  localMech.student_name,
+          team_members:                  localMech.team_members,
+          department:                    localMech.department,
+          college:                       localMech.college,
+          academic_year:                 localMech.academic_year,
+          external_links:                finalExternalLinks,
+          additional_technical_details:  finalTechDetails,
+          status:                        approved !== false ? MECHANISM_STATUS.APPROVED : MECHANISM_STATUS.PENDING,
+          cover_image:                   localCoverImage,
         };
         const retryRes = await supabase
           .from(MECHANISMS_TABLE)
@@ -683,21 +724,128 @@ export async function rejectMechanism(id, feedback = "") {
 }
 
 /** Admin: edit an approved/pending mechanism's fields. */
-export async function updateMechanism(id, fields) {
+export async function updateMechanism(id, formValues, filesByType = {}) {
   const list = getLocalMechanisms();
   const idx = list.findIndex((m) => String(m.id) === String(id));
+  const current = idx !== -1 ? list[idx] : {};
+
+  let coverImg = formValues.cover_image || formValues.image || current.cover_image || current.image || null;
+  let bgImg = formValues.background_image || formValues.bg_image_url || current.background_image || current.bg_image_url || null;
+  let htmlAnim = formValues.html_animation_url || formValues.animation_url || current.html_animation_url || current.animation_url || null;
+
+  // Process any uploaded files during edit
+  for (const [type, fileList] of Object.entries(filesByType || {})) {
+    if (!fileList || !fileList[0]) continue;
+    const file = fileList[0];
+    if (type === "image") {
+      coverImg = await resizeImageToThumbnail(file);
+    } else if (type === "background_image") {
+      bgImg = (await readFileAsDataUrl(file)).url;
+    } else if (type === "animation_html" || /\.(html|htm)$/i.test(file.name)) {
+      htmlAnim = (await readFileAsDataUrl(file)).url;
+    }
+  }
+
+  const linksSet = new Set();
+  if (htmlAnim) linksSet.add(htmlAnim);
+  if (formValues.video_url?.trim()) linksSet.add(formValues.video_url.trim());
+  if (formValues.video?.trim()) linksSet.add(formValues.video.trim());
+  if (formValues.virtual_mechanism_url?.trim()) linksSet.add(formValues.virtual_mechanism_url.trim());
+  if (Array.isArray(formValues.external_links)) {
+    formValues.external_links.forEach((l) => { if (l && typeof l === "string") linksSet.add(l.trim()); });
+  } else if (Array.isArray(current.external_links)) {
+    current.external_links.forEach((l) => { if (l && typeof l === "string") linksSet.add(l.trim()); });
+  }
+  const finalExternalLinks = Array.from(linksSet);
+
+  const techDetailsObj = {
+    notes: formValues.additional_technical_details || (typeof current.additional_technical_details === "string" ? current.additional_technical_details : ""),
+    html_animation_url: htmlAnim || null,
+    animation_url: htmlAnim || formValues.animation_url || current.animation_url || null,
+    virtual_mechanism_url: formValues.virtual_mechanism_url || current.virtual_mechanism_url || null,
+    video_url: formValues.video_url || formValues.video || current.video_url || current.video || null,
+    motion_type: formValues.motion_type || current.motion_type || "Oscillating / Rocker",
+    applications: formValues.applications || current.applications || null,
+  };
+  const finalTechDetails = JSON.stringify(techDetailsObj);
+
+  const numL = Number(formValues.num_links ?? formValues.links ?? current.num_links ?? 4);
+  const numJ = Number(formValues.num_joints ?? formValues.joints ?? current.num_joints ?? 4);
+  const numH = Number(formValues.higher_pairs ?? formValues.higherPairs ?? current.higher_pairs ?? 0);
+  const calcDof = Math.max(0, 3 * (numL - 1) - 2 * numJ - numH);
+
+  const desc = (formValues.detailed_description || formValues.description || formValues.short_description || current.detailed_description || current.description || "").trim();
+
+  const updatedLocal = {
+    ...current,
+    ...formValues,
+    id,
+    name: (formValues.name || current.name || "").trim(),
+    category: formValues.category || current.category || "Four-bar",
+    short_description: formValues.short_description || (desc ? desc.slice(0, 140) + "..." : ""),
+    detailed_description: desc,
+    description: desc,
+    working_principle: formValues.working_principle || desc,
+    applications: formValues.applications || current.applications || null,
+    num_links: numL,
+    num_joints: numJ,
+    higher_pairs: numH,
+    degrees_of_freedom: formValues.degrees_of_freedom !== undefined && !isNaN(Number(formValues.degrees_of_freedom)) ? Number(formValues.degrees_of_freedom) : calcDof,
+    input_link: formValues.input_link || current.input_link || "Link 1 (Driver / Crank)",
+    output_link: formValues.output_link || current.output_link || "Output / Rocker",
+    motion_type: formValues.motion_type || current.motion_type || "Oscillating / Rocker",
+    student_name: (formValues.student_name || current.student_name || "").trim(),
+    team_members: formValues.team_members || current.team_members || null,
+    college: formValues.college || current.college || "NMIET",
+    department: formValues.department || current.department || "Mechanical Engineering",
+    academic_year: formValues.academic_year || current.academic_year || "TE Mech",
+    html_animation_url: htmlAnim,
+    animation_url: htmlAnim,
+    video: formValues.video_url || formValues.video || current.video || "",
+    video_url: formValues.video_url || formValues.video || current.video_url || "",
+    virtual_mechanism_url: formValues.virtual_mechanism_url || current.virtual_mechanism_url || null,
+    cover_image: coverImg,
+    preview_image_url: coverImg,
+    background_image: bgImg,
+    bg_image_url: bgImg,
+    external_links: finalExternalLinks,
+    additional_technical_details: finalTechDetails,
+  };
+
   if (idx !== -1) {
-    list[idx] = { ...list[idx], ...fields };
+    list[idx] = updatedLocal;
     saveLocalMechanisms(list);
   }
 
   let dbError = null;
   if (supabase) {
     try {
-      let { error } = await supabase.from(MECHANISMS_TABLE).update(fields).eq("id", id);
+      const supabaseFields = {
+        name:                          updatedLocal.name,
+        category:                      updatedLocal.category,
+        short_description:             updatedLocal.short_description,
+        detailed_description:          updatedLocal.detailed_description,
+        working_principle:             updatedLocal.working_principle,
+        applications:                  updatedLocal.applications,
+        num_links:                     updatedLocal.num_links,
+        num_joints:                    updatedLocal.num_joints,
+        degrees_of_freedom:            updatedLocal.degrees_of_freedom,
+        input_link:                    updatedLocal.input_link,
+        output_link:                   updatedLocal.output_link,
+        additional_technical_details:  finalTechDetails,
+        student_name:                  updatedLocal.student_name,
+        team_members:                  updatedLocal.team_members,
+        department:                    updatedLocal.department,
+        college:                       updatedLocal.college,
+        academic_year:                 updatedLocal.academic_year,
+        external_links:                finalExternalLinks,
+        cover_image:                   coverImg,
+      };
+
+      let { error } = await supabase.from(MECHANISMS_TABLE).update(supabaseFields).eq("id", id);
       if (error && error.code === "PGRST204") {
         console.warn("Supabase update schema mismatch. Retrying with core fields:", error.message);
-        const { admin_feedback, tracking_code, ...coreFields } = fields;
+        const { admin_feedback, tracking_code, ...coreFields } = supabaseFields;
         const retryRes = await supabase.from(MECHANISMS_TABLE).update(coreFields).eq("id", id);
         error = retryRes.error;
       }
@@ -710,7 +858,7 @@ export async function updateMechanism(id, fields) {
       console.error("Supabase update exception:", err);
     }
   }
-  return { error: dbError };
+  return { error: dbError, mechanism: updatedLocal };
 }
 
 /** Admin: permanently delete a mechanism. */

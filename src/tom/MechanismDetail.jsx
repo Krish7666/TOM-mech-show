@@ -136,7 +136,7 @@ export default function MechanismDetail({ id, isAdmin, onBack, onChanged }) {
   }, [id]);
 
   const htmlAnimationUrl = useMemo(() => {
-    if (mechanism?.html_animation_url && isSafeUrl(mechanism.html_animation_url)) {
+    if (mechanism?.html_animation_url && (isHtmlAnimationUrl(mechanism.html_animation_url) || isSafeUrl(mechanism.html_animation_url))) {
       return mechanism.html_animation_url.trim();
     }
     if (mechanism?.animation_url && (isHtmlAnimationUrl(mechanism.animation_url) || isSafeUrl(mechanism.animation_url))) {
@@ -157,7 +157,7 @@ export default function MechanismDetail({ id, isAdmin, onBack, onChanged }) {
     });
     if (animRow) return animRow.file_url.trim();
     if (Array.isArray(mechanism?.external_links)) {
-      const link = mechanism.external_links.find((l) => isHtmlAnimationUrl(l) || isSafeUrl(l));
+      const link = mechanism.external_links.find((l) => typeof l === "string" && isHtmlAnimationUrl(l));
       if (link) return link.trim();
     }
     return null;

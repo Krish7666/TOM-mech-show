@@ -11,6 +11,7 @@ import { isSupabaseConfigured } from "../lib/supabaseClient.js";
 import { mechanismToForm, EMPTY_ADMIN_FORM } from "../tom/mechanismUtils.js";
 import { useMechanisms } from "../context/MechanismsContext.jsx";
 import ConfirmDialog from "../components/ConfirmDialog.jsx";
+import MechanismForm from "../tom/MechanismForm.jsx";
 
 /**
  * Full admin moderation dashboard.
@@ -21,8 +22,8 @@ export default function AdminPage({ onLogout, onNavigate, showToast }) {
 
   // ── Add / Edit form state ────────────────────────────────────────────────
   const [showAddForm, setShowAddForm] = useState(false);
+  const [editingMechanism, setEditingMechanism] = useState(null);
   const [editingMechanismId, setEditingMechanismId] = useState(null);
-  const [newMechanism, setNewMechanism] = useState(EMPTY_ADMIN_FORM);
   const [formError, setFormError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
@@ -53,75 +54,38 @@ export default function AdminPage({ onLogout, onNavigate, showToast }) {
   // ── Form handlers ────────────────────────────────────────────────────────
   function startEditingMechanism(mechanism) {
     setEditingMechanismId(mechanism.id);
-    setNewMechanism(mechanismToForm(mechanism));
+    setEditingMechanism(mechanism);
     setFormError("");
     setShowAddForm(true);
+    window.scrollTo({ top: 320, behavior: "smooth" });
   }
 
-  function handleChange(e) {
-    const { name, value } = e.target;
-    setNewMechanism((cur) => ({ ...cur, [name]: value }));
-  }
-
-  function handleImageChange(e) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (!file.type.startsWith("image/")) {
-      setFormError("Please select an image file.");
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = () => {
-      setNewMechanism((cur) => ({ ...cur, image: reader.result }));
-      setFormError("");
-    };
-    reader.readAsDataURL(file);
-  }
-
-  async function handleAddMechanismSubmit(e) {
-    e.preventDefault();
-    if (!newMechanism.name || !newMechanism.student_name || !newMechanism.category) {
-      setFormError("Please fill in the mechanism name, category, and student name.");
-      return;
-    }
+  async function handleFormSubmit(payload, files) {
     setSubmitting(true);
     setFormError("");
     try {
-      const payload = {
-        name: newMechanism.name,
-        category: newMechanism.category,
-        student_name: newMechanism.student_name,
-        team_members: newMechanism.team_members || newMechanism.student_name,
-        college: newMechanism.college || "NMIET",
-        department: newMechanism.department || "Mechanical Engineering",
-        short_description: newMechanism.short_description || "Faculty/Admin added mechanism.",
-        detailed_description: newMechanism.information || "",
-        num_links: Number(newMechanism.links || 4),
-        num_joints: Number(newMechanism.joints || 4),
-        higher_pairs: Number(newMechanism.higherPairs || 0),
-        instructions: (newMechanism.instructions || "")
-          .split("\n")
-          .map((s) => s.trim())
-          .filter(Boolean),
-        video: newMechanism.video || "",
-        html_animation_url: newMechanism.html_animation_url?.trim() || null,
-        animation_url: newMechanism.html_animation_url?.trim() || null,
-      };
-
       if (editingMechanismId) {
-        await apiUpdateMechanism(editingMechanismId, payload);
-        showToast("Mechanism updated.");
+        const res = await apiUpdateMechanism(editingMechanismId, payload, files);
+        if (res?.error) {
+          showToast("⚠️ Updated locally, but cloud sync returned: " + (res.error.message || "error"));
+        } else {
+          showToast("✅ Mechanism updated successfully.");
+        }
       } else {
-        await submitMechanism(payload, {}, { approved: true });
-        showToast("New mechanism added to repository.");
+        const res = await submitMechanism(payload, files, { approved: true });
+        if (res?.error) {
+          showToast("⚠️ Created locally, but cloud sync returned: " + (res.error.message || "error"));
+        } else {
+          showToast("✅ New mechanism created and published to showcase.");
+        }
       }
 
       await refreshData();
       setShowAddForm(false);
       setEditingMechanismId(null);
-      setNewMechanism(EMPTY_ADMIN_FORM);
+      setEditingMechanism(null);
     } catch (err) {
-      setFormError("Could not save mechanism. " + (err?.message || ""));
+      setFormError("Could not save mechanism: " + (err?.message || ""));
     } finally {
       setSubmitting(false);
     }
@@ -403,7 +367,15 @@ export default function AdminPage({ onLogout, onNavigate, showToast }) {
                       Links: {pending.num_links ?? 4} | Joints: {pending.num_joints ?? 4} | Higher Pairs:{" "}
                       {pending.higher_pairs ?? 0} | DOF: {pending.degrees_of_freedom ?? 1}
                     </span>
-                    <div style={{ display: "flex", gap: 8 }}>
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                      <button
+                        type="button"
+                        className="secondary-btn secondary-btn--small"
+                        style={{ minHeight: 36, padding: "0 14px", fontSize: "0.82rem" }}
+                        onClick={() => startEditingMechanism(pending)}
+                      >
+                        ✎ Edit Full Form
+                      </button>
                       <button
                         type="button"
                         className="primary-btn"
@@ -439,11 +411,16 @@ export default function AdminPage({ onLogout, onNavigate, showToast }) {
               type="button"
               className="primary-btn"
               onClick={() => {
-                setShowAddForm((prev) => !prev);
-                if (showAddForm) {
+                setShowAddForm((prev) => {
+                  if (prev) {
+                    setEditingMechanismId(null);
+                    setEditingMechanism(null);
+                    return false;
+                  }
                   setEditingMechanismId(null);
-                  setNewMechanism(EMPTY_ADMIN_FORM);
-                }
+                  setEditingMechanism(null);
+                  return true;
+                });
               }}
             >
               {showAddForm ? "Close Form" : "+ Add Mechanism"}
@@ -451,144 +428,23 @@ export default function AdminPage({ onLogout, onNavigate, showToast }) {
           </div>
 
           {showAddForm && (
-            <form
-              className="mechanism-form"
-              onSubmit={handleAddMechanismSubmit}
-              style={{ marginBottom: 24, borderBottom: "1px solid var(--border)", paddingBottom: 24 }}
-            >
-              <div className="form-heading">
-                <h3>{editingMechanismId ? "Update Mechanism Details" : "Add a Mechanism to Catalog"}</h3>
-              </div>
-              <div className="mechanism-form__grid">
-                <label className="field">
-                  <span className="field__label">Mechanism Name *</span>
-                  <input
-                    name="name"
-                    value={newMechanism.name}
-                    onChange={handleChange}
-                    placeholder="e.g. Quick Return Mechanism"
-                    required
-                  />
-                </label>
-
-                <label className="field">
-                  <span className="field__label">Category *</span>
-                  <select name="category" value={newMechanism.category} onChange={handleChange}>
-                    {TOM_CATEGORIES.map((cat) => (
-                      <option key={cat} value={cat}>
-                        {cat}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-
-                <label className="field field--full">
-                  <span className="field__label">Student / Author Name(s) *</span>
-                  <input
-                    name="student_name"
-                    value={newMechanism.student_name}
-                    onChange={handleChange}
-                    placeholder="e.g. Aarav Patil, Sakshi Verma"
-                    required
-                  />
-                </label>
-
-                <label className="field field--full">
-                  <span className="field__label">Short Description</span>
-                  <input
-                    name="short_description"
-                    value={newMechanism.short_description}
-                    onChange={handleChange}
-                    placeholder="Brief project overview"
-                  />
-                </label>
-
-                <label className="field field--full">
-                  <span className="field__label">Working Principle &amp; Details</span>
-                  <textarea
-                    name="information"
-                    value={newMechanism.information}
-                    onChange={handleChange}
-                    rows="3"
-                    placeholder="Explain the kinematic function and application"
-                  />
-                </label>
-
-                <label className="field">
-                  <span className="field__label">Number of Links (L)</span>
-                  <input name="links" type="number" value={newMechanism.links} onChange={handleChange} min="1" />
-                </label>
-
-                <label className="field">
-                  <span className="field__label">Number of Lower Joints (J)</span>
-                  <input name="joints" type="number" value={newMechanism.joints} onChange={handleChange} min="0" />
-                </label>
-
-                <label className="field">
-                  <span className="field__label">Number of Higher Pairs (H)</span>
-                  <input
-                    name="higherPairs"
-                    type="number"
-                    value={newMechanism.higherPairs}
-                    onChange={handleChange}
-                    min="0"
-                  />
-                </label>
-
-                <label className="field field--full">
-                  <span className="field__label">HTML Animation Link (.html format only)</span>
-                  <input
-                    name="html_animation_url"
-                    value={newMechanism.html_animation_url || ""}
-                    onChange={handleChange}
-                    placeholder="https://.../animation.html"
-                  />
-                </label>
-
-                <label className="field field--full">
-                  <span className="field__label">Video / Embed URL</span>
-                  <input
-                    name="video"
-                    value={newMechanism.video}
-                    onChange={handleChange}
-                    placeholder="https://youtube.com/watch?v=..."
-                  />
-                </label>
-
-                <label className="field field--full">
-                  <span className="field__label">Mechanism Cover Image</span>
-                  <input type="file" accept="image/*" onChange={handleImageChange} />
-                  {newMechanism.image && (
-                    <img
-                      className="form-image-preview"
-                      src={newMechanism.image}
-                      alt="Selected mechanism preview"
-                      style={{ marginTop: 8 }}
-                    />
-                  )}
-                </label>
-              </div>
-
-              {formError && <div className="login-error" style={{ marginTop: 12 }}>{formError}</div>}
-
-              <div className="form-actions" style={{ marginTop: 16 }}>
-                <button type="submit" className="primary-btn" disabled={submitting}>
-                  {submitting ? "Saving..." : editingMechanismId ? "Save Changes" : "Create Mechanism"}
-                </button>
-                <button
-                  type="button"
-                  className="secondary-btn"
-                  onClick={() => {
-                    setShowAddForm(false);
-                    setEditingMechanismId(null);
-                    setNewMechanism(EMPTY_ADMIN_FORM);
-                    setFormError("");
-                  }}
-                >
-                  Cancel
-                </button>
-              </div>
-            </form>
+            <div style={{ marginBottom: 32, borderBottom: "1px solid var(--border)", paddingBottom: 32 }}>
+              <MechanismForm
+                initialValues={editingMechanism}
+                isEditing={Boolean(editingMechanismId)}
+                title={editingMechanismId ? `Edit Mechanism Specifications: ${editingMechanism?.name || ""}` : "Add a Mechanism to Catalog"}
+                submitLabel={editingMechanismId ? "Save Changes" : "Create Mechanism"}
+                onCancel={() => {
+                  setShowAddForm(false);
+                  setEditingMechanismId(null);
+                  setEditingMechanism(null);
+                  setFormError("");
+                }}
+                onSubmit={handleFormSubmit}
+                submitting={submitting}
+                formError={formError}
+              />
+            </div>
           )}
 
           <div className="admin-list">

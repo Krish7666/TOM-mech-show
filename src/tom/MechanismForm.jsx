@@ -1,5 +1,11 @@
-import { useState } from "react";
-import { EMPTY_MECHANISM_FORM, ACCEPT, ACADEMIC_YEARS } from "./tomConstants";
+import { useState, useEffect } from "react";
+import {
+  EMPTY_MECHANISM_FORM,
+  ACCEPT,
+  ACADEMIC_YEARS,
+  TOM_CATEGORIES,
+  MOTION_TYPES,
+} from "./tomConstants";
 import { validateUploadFile } from "./tomApi";
 
 function isHtmlFormatUrl(rawUrl) {
@@ -14,19 +20,104 @@ function isHtmlFormatUrl(rawUrl) {
   );
 }
 
-export default function MechanismForm({ onCancel, onSubmit, submitting, formError: externalFormError }) {
-  const [form, setForm] = useState(EMPTY_MECHANISM_FORM);
+export default function MechanismForm({
+  initialValues = null,
+  isEditing = false,
+  title = "",
+  submitLabel = "",
+  onCancel,
+  onSubmit,
+  submitting,
+  formError: externalFormError,
+}) {
+  const [form, setForm] = useState(() => {
+    if (initialValues) {
+      return {
+        ...EMPTY_MECHANISM_FORM,
+        ...initialValues,
+        name: initialValues.name || "",
+        category: initialValues.category || "Four-bar",
+        short_description: initialValues.short_description || "",
+        detailed_description: initialValues.detailed_description || initialValues.description || "",
+        description: initialValues.detailed_description || initialValues.description || initialValues.short_description || "",
+        working_principle: initialValues.working_principle || initialValues.detailed_description || "",
+        applications: initialValues.applications || "",
+        num_links: String(initialValues.num_links ?? initialValues.links ?? 4),
+        num_joints: String(initialValues.num_joints ?? initialValues.joints ?? 4),
+        higher_pairs: String(initialValues.higher_pairs ?? initialValues.higherPairs ?? 0),
+        degrees_of_freedom: Number(initialValues.degrees_of_freedom ?? 1),
+        input_link: initialValues.input_link || "Link 1 (Driver / Crank)",
+        output_link: initialValues.output_link || "Output / Rocker",
+        student_name: initialValues.student_name || "",
+        team_members: initialValues.team_members || "",
+        academic_year: initialValues.academic_year || "TE Mech",
+        motion_type: initialValues.motion_type || "Oscillating / Rocker",
+        video_url: initialValues.video_url || initialValues.video || "",
+        html_animation_url: initialValues.html_animation_url || initialValues.animation_url || "",
+        animation_url: initialValues.html_animation_url || initialValues.animation_url || "",
+        virtual_mechanism_url: initialValues.virtual_mechanism_url || "",
+        department: initialValues.department || "Mechanical Engineering",
+        college: initialValues.college || "NMIET",
+        additional_technical_details: typeof initialValues.additional_technical_details === "string" ? initialValues.additional_technical_details : "",
+      };
+    }
+    return { ...EMPTY_MECHANISM_FORM };
+  });
+
   const [files, setFiles] = useState({});
-  const [imagePreview, setImagePreview] = useState("");
-  const [bgImagePreview, setBgImagePreview] = useState("");
-  const [imageUrlInput, setImageUrlInput] = useState("");
-  const [bgImageUrl, setBgImageUrl] = useState("");
+  const [imagePreview, setImagePreview] = useState(() => initialValues?.cover_image || initialValues?.image || "");
+  const [bgImagePreview, setBgImagePreview] = useState(() => initialValues?.background_image || initialValues?.bg_image_url || "");
+  const [imageUrlInput, setImageUrlInput] = useState(() => (typeof initialValues?.cover_image === "string" && initialValues.cover_image.startsWith("http") ? initialValues.cover_image : ""));
+  const [bgImageUrl, setBgImageUrl] = useState(() => (typeof initialValues?.background_image === "string" && initialValues.background_image.startsWith("http") ? initialValues.background_image : ""));
   const [localError, setLocalError] = useState("");
-  const [animMode, setAnimMode] = useState("upload"); // "upload" | "url"
+  const [animMode, setAnimMode] = useState(() => (initialValues?.html_animation_url && initialValues.html_animation_url.startsWith("http") ? "url" : "upload"));
   const [htmlFileObj, setHtmlFileObj] = useState(null);
-  const [htmlFilePreview, setHtmlFilePreview] = useState("");
+  const [htmlFilePreview, setHtmlFilePreview] = useState(() => initialValues?.html_animation_url || initialValues?.animation_url || "");
 
   const formError = localError || externalFormError;
+
+  // Sync state if initialValues changes
+  useEffect(() => {
+    if (initialValues) {
+      setForm((cur) => ({
+        ...cur,
+        ...initialValues,
+        name: initialValues.name || "",
+        category: initialValues.category || "Four-bar",
+        short_description: initialValues.short_description || "",
+        detailed_description: initialValues.detailed_description || initialValues.description || "",
+        description: initialValues.detailed_description || initialValues.description || initialValues.short_description || "",
+        working_principle: initialValues.working_principle || initialValues.detailed_description || "",
+        applications: initialValues.applications || "",
+        num_links: String(initialValues.num_links ?? initialValues.links ?? 4),
+        num_joints: String(initialValues.num_joints ?? initialValues.joints ?? 4),
+        higher_pairs: String(initialValues.higher_pairs ?? initialValues.higherPairs ?? 0),
+        degrees_of_freedom: Number(initialValues.degrees_of_freedom ?? 1),
+        input_link: initialValues.input_link || "Link 1 (Driver / Crank)",
+        output_link: initialValues.output_link || "Output / Rocker",
+        student_name: initialValues.student_name || "",
+        team_members: initialValues.team_members || "",
+        academic_year: initialValues.academic_year || "TE Mech",
+        motion_type: initialValues.motion_type || "Oscillating / Rocker",
+        video_url: initialValues.video_url || initialValues.video || "",
+        html_animation_url: initialValues.html_animation_url || initialValues.animation_url || "",
+        animation_url: initialValues.html_animation_url || initialValues.animation_url || "",
+        virtual_mechanism_url: initialValues.virtual_mechanism_url || "",
+        department: initialValues.department || "Mechanical Engineering",
+        college: initialValues.college || "NMIET",
+        additional_technical_details: typeof initialValues.additional_technical_details === "string" ? initialValues.additional_technical_details : "",
+      }));
+      if (initialValues.cover_image || initialValues.image) {
+        setImagePreview(initialValues.cover_image || initialValues.image);
+      }
+      if (initialValues.background_image || initialValues.bg_image_url) {
+        setBgImagePreview(initialValues.background_image || initialValues.bg_image_url);
+      }
+      if (initialValues.html_animation_url || initialValues.animation_url) {
+        setHtmlFilePreview(initialValues.html_animation_url || initialValues.animation_url);
+      }
+    }
+  }, [initialValues]);
 
   function handleChange(e) {
     const { name, value } = e.target;
@@ -123,15 +214,37 @@ export default function MechanismForm({ onCancel, onSubmit, submitting, formErro
     }
   }
 
-  function handleSubmit(e) {
+  // Calculate live Grubler DOF
+  const numLinks = Math.max(1, parseInt(form.num_links || "4", 10) || 4);
+  const numJoints = Math.max(0, parseInt(form.num_joints || "4", 10) || 4);
+  const numHigher = Math.max(0, parseInt(form.higher_pairs || "0", 10) || 0);
+  const calculatedDof = Math.max(0, 3 * (numLinks - 1) - 2 * numJoints - numHigher);
+
+  async function handleSubmit(e) {
     e.preventDefault();
     setLocalError("");
 
-    const animUrl = (form.html_animation_url || "").trim();
+    let animUrl = (form.html_animation_url || "").trim();
+
+    // If an HTML file was uploaded, ensure it is converted to data URL before dispatching
+    if (htmlFileObj && (!animUrl || animUrl.startsWith("blob:") || !animUrl.startsWith("data:text/html"))) {
+      try {
+        const dataUrl = await new Promise((resolve, reject) => {
+          const r = new FileReader();
+          r.onload = () => resolve(r.result);
+          r.onerror = reject;
+          r.readAsDataURL(htmlFileObj);
+        });
+        animUrl = dataUrl;
+      } catch (err) {
+        console.warn("Could not read HTML file as Data URL:", err);
+      }
+    }
+
     if (animUrl && !htmlFileObj) {
       const lower = animUrl.toLowerCase();
-      if (!lower.startsWith("http://") && !lower.startsWith("https://") && !lower.startsWith("data:text/html")) {
-        setLocalError("HTML Animation link must start with http:// or https://");
+      if (!lower.startsWith("http://") && !lower.startsWith("https://") && !lower.startsWith("data:text/html") && !lower.startsWith("blob:")) {
+        setLocalError("HTML Animation link must start with http:// or https://, or be an uploaded .html file.");
         return;
       }
       if (!isHtmlFormatUrl(animUrl)) {
@@ -140,38 +253,42 @@ export default function MechanismForm({ onCancel, onSubmit, submitting, formErro
       }
     }
 
-    const finalCover = imagePreview || imageUrlInput.trim() || null;
-    const finalBg = bgImageUrl.trim() || null;
+    const finalCover = imagePreview || imageUrlInput.trim() || form.cover_image || null;
+    const finalBg = bgImageUrl.trim() || bgImagePreview || form.background_image || null;
+    const desc = (form.detailed_description || form.description || form.short_description || "").trim();
+
     const payload = {
       ...form,
       name: form.name.trim(),
       category: form.category || "Four-bar",
       student_name: form.student_name.trim(),
       team_members: form.team_members?.trim() || form.student_name.trim(),
-      academic_year: form.academic_year || "SE Mech",
-      short_description: form.description
-        ? (form.description.slice(0, 140) + (form.description.length > 140 ? "..." : ""))
-        : "Student mechanism project.",
-      detailed_description: form.description || "",
-      working_principle: form.description || "",
-      num_links: 4,
-      num_joints: 4,
-      higher_pairs: 0,
-      degrees_of_freedom: 1,
+      academic_year: form.academic_year || "TE Mech",
+      short_description: form.short_description?.trim() || (desc ? (desc.slice(0, 140) + (desc.length > 140 ? "..." : "")) : "Student mechanism project."),
+      detailed_description: desc,
+      working_principle: form.working_principle?.trim() || desc,
+      applications: form.applications?.trim() || null,
+      num_links: numLinks,
+      num_joints: numJoints,
+      higher_pairs: numHigher,
+      degrees_of_freedom: calculatedDof,
+      input_link: form.input_link?.trim() || "Link 1 (Driver / Crank)",
+      output_link: form.output_link?.trim() || "Output / Rocker",
+      motion_type: form.motion_type || "Oscillating / Rocker",
       html_animation_url: animUrl || null,
       animation_url: animUrl || (form.animation_url ? form.animation_url.trim() : null),
       virtual_mechanism_url: form.virtual_mechanism_url ? form.virtual_mechanism_url.trim() : null,
-      external_links: [
-        ...(animUrl ? [animUrl] : []),
-        ...(form.video_url ? [form.video_url.trim()] : []),
-        ...(form.virtual_mechanism_url ? [form.virtual_mechanism_url.trim()] : []),
-      ],
-      college: "NMIET",
-      department: "Mechanical Engineering",
+      video_url: form.video_url ? form.video_url.trim() : (form.video ? form.video.trim() : ""),
+      video: form.video_url ? form.video_url.trim() : (form.video ? form.video.trim() : ""),
+      college: form.college?.trim() || "NMIET",
+      department: form.department?.trim() || "Mechanical Engineering",
+      additional_technical_details: form.additional_technical_details || "",
       cover_image: finalCover,
+      preview_image_url: finalCover,
       background_image: finalBg,
       bg_image_url: finalBg,
     };
+
     onSubmit(payload, files);
   }
 
@@ -179,44 +296,105 @@ export default function MechanismForm({ onCancel, onSubmit, submitting, formErro
     <form className="project-form tom-form" onSubmit={handleSubmit}>
       <div className="project-form__header">
         <div>
-          <p className="project-form__eyebrow">TOM Mechanism Showcase · NMIET</p>
-          <h2 className="project-form__title">Submit Your Mechanism</h2>
+          <p className="project-form__eyebrow">TOM Mechanism Showcase · NMIET Mechanical Engineering</p>
+          <h2 className="project-form__title">
+            {title || (isEditing ? "Edit Mechanism Specifications" : "Submit Your Mechanism")}
+          </h2>
         </div>
         <p className="project-form__hint">
-          Share your mechanical engineering mechanism model with the showcase.
+          {isEditing
+            ? "Full editing panel: All technical parameters, descriptions, authors, and media files are open to edit."
+            : "Share your mechanical engineering mechanism model with the showcase repository."}
         </p>
       </div>
 
-      <h3 className="tom-form__section-title">1. Mechanism Information</h3>
+      {/* SECTION 1: MECHANISM CLASSIFICATION & DESCRIPTIONS */}
+      <h3 className="tom-form__section-title">1. Mechanism Overview &amp; Classification</h3>
       <div className="project-form__grid">
         <label className="field field--wide" style={{ gridColumn: "1 / -1" }}>
           <span className="field__label">Mechanism Name *</span>
           <input
             className="field__control"
             name="name"
-            placeholder="e.g. Four-Bar Linkage / Quick Return / Gearbox"
+            placeholder="e.g. Four-Bar Linkage / Whitworth Quick Return / Geneva Mechanism"
             value={form.name}
             onChange={handleChange}
             required
           />
         </label>
 
+        <label className="field">
+          <span className="field__label">Category *</span>
+          <select
+            className="field__control"
+            name="category"
+            value={form.category}
+            onChange={handleChange}
+            required
+          >
+            {TOM_CATEGORIES.map((cat) => (
+              <option key={cat} value={cat}>
+                {cat}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label className="field">
+          <span className="field__label">Short Summary (Card Preview)</span>
+          <input
+            className="field__control"
+            name="short_description"
+            placeholder="One-sentence highlight of this mechanism's purpose"
+            value={form.short_description || ""}
+            onChange={handleChange}
+          />
+        </label>
+
         <label className="field field--wide" style={{ gridColumn: "1 / -1" }}>
-          <span className="field__label">What does this mechanism do? (Description)</span>
+          <span className="field__label">Detailed Description &amp; Motion Characteristics</span>
           <textarea
             className="field__control field__control--textarea"
-            name="description"
+            name="detailed_description"
             rows={3}
-            placeholder="Describe what the mechanism does, how it moves, and where it is used..."
-            value={form.description}
+            placeholder="Describe what the mechanism does, how it transforms motion (e.g. rotary to reciprocating), and key structural traits..."
+            value={form.detailed_description || form.description || ""}
+            onChange={(e) => {
+              handleChange(e);
+              setForm((cur) => ({ ...cur, description: e.target.value }));
+            }}
+          />
+        </label>
+
+        <label className="field field--wide" style={{ gridColumn: "1 / -1" }}>
+          <span className="field__label">Working Principle &amp; Functional Operation</span>
+          <textarea
+            className="field__control field__control--textarea"
+            name="working_principle"
+            rows={3}
+            placeholder="Explain step-by-step how the driver link actuates the system, transmission angles, and output behavior..."
+            value={form.working_principle || ""}
+            onChange={handleChange}
+          />
+        </label>
+
+        <label className="field field--wide" style={{ gridColumn: "1 / -1" }}>
+          <span className="field__label">Practical &amp; Industrial Applications</span>
+          <textarea
+            className="field__control field__control--textarea"
+            name="applications"
+            rows={2}
+            placeholder="e.g. Shaper and slotting machines, automotive windshield wipers, robotics, printing presses..."
+            value={form.applications || ""}
             onChange={handleChange}
           />
         </label>
       </div>
 
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "0.5rem", marginTop: "1.2rem", marginBottom: "0.5rem" }}>
+      {/* SECTION 2: AUTHORS & INSTITUTION */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "0.5rem", marginTop: "1.4rem", marginBottom: "0.5rem" }}>
         <h3 className="tom-form__section-title" style={{ margin: 0, border: "none", paddingTop: 0 }}>
-          2. Student / Team Members
+          2. Authors &amp; Institutional Details
         </h3>
         <span style={{ fontSize: "0.8rem", color: "var(--accent, #6366f1)", background: "rgba(99, 102, 241, 0.1)", border: "1px solid rgba(99, 102, 241, 0.2)", padding: "0.25rem 0.75rem", borderRadius: "9999px", fontWeight: 500 }}>
           🏛 NMIET · Mechanical Engineering
@@ -224,19 +402,27 @@ export default function MechanismForm({ onCancel, onSubmit, submitting, formErro
       </div>
 
       <div className="project-form__grid">
-        <label className="field field--wide" style={{ gridColumn: "1 / -1" }}>
-          <span className="field__label">Student / Contributor Name(s) *</span>
+        <label className="field">
+          <span className="field__label">Lead Contributor / Author Name *</span>
           <input
             className="field__control"
             name="student_name"
-            placeholder="e.g. Aarav Patil, Sakshi Verma, Rahul Shinde"
+            placeholder="e.g. Aarav Patil"
             value={form.student_name}
             onChange={handleChange}
             required
           />
-          <span className="field__hint" style={{ fontSize: "0.75rem", color: "var(--muted)", marginTop: "4px" }}>
-            Add student name(s) or team members who worked on this model.
-          </span>
+        </label>
+
+        <label className="field">
+          <span className="field__label">Team Members / All Contributors</span>
+          <input
+            className="field__control"
+            name="team_members"
+            placeholder="e.g. Aarav Patil, Sakshi Verma, Rahul Shinde"
+            value={form.team_members}
+            onChange={handleChange}
+          />
         </label>
 
         <label className="field">
@@ -256,22 +442,146 @@ export default function MechanismForm({ onCancel, onSubmit, submitting, formErro
         </label>
 
         <label className="field">
-          <span className="field__label">Video Demo URL (Optional)</span>
+          <span className="field__label">Department</span>
           <input
             className="field__control"
-            name="video_url"
-            placeholder="YouTube link or Drive video link"
-            value={form.video_url}
+            name="department"
+            value={form.department || "Mechanical Engineering"}
+            onChange={handleChange}
+          />
+        </label>
+
+        <label className="field">
+          <span className="field__label">College / Institute</span>
+          <input
+            className="field__control"
+            name="college"
+            value={form.college || "NMIET"}
             onChange={handleChange}
           />
         </label>
       </div>
 
-      <h3 className="tom-form__section-title" style={{ marginTop: "1.2rem" }}>
-        3. Thumbnail Photo / Image
+      {/* SECTION 3: KINEMATICS & MOBILITY (DOF) */}
+      <h3 className="tom-form__section-title" style={{ marginTop: "1.4rem" }}>
+        3. Kinematics, Joints &amp; Mobility (DOF)
+      </h3>
+      <div className="project-form__grid">
+        <label className="field">
+          <span className="field__label">Number of Links (L)</span>
+          <input
+            className="field__control"
+            type="number"
+            min="1"
+            name="num_links"
+            value={form.num_links}
+            onChange={handleChange}
+          />
+        </label>
+
+        <label className="field">
+          <span className="field__label">Number of Lower Pairs / Joints (J)</span>
+          <input
+            className="field__control"
+            type="number"
+            min="0"
+            name="num_joints"
+            value={form.num_joints}
+            onChange={handleChange}
+          />
+        </label>
+
+        <label className="field">
+          <span className="field__label">Number of Higher Pairs (H)</span>
+          <input
+            className="field__control"
+            type="number"
+            min="0"
+            name="higher_pairs"
+            value={form.higher_pairs}
+            onChange={handleChange}
+          />
+        </label>
+
+        {/* Live Mobility Display Card */}
+        <div style={{
+          gridColumn: "1 / -1",
+          padding: "10px 16px",
+          background: "rgba(56, 189, 248, 0.08)",
+          border: "1px solid rgba(56, 189, 248, 0.25)",
+          borderRadius: "12px",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          flexWrap: "wrap",
+          gap: "10px",
+        }}>
+          <div>
+            <span style={{ fontSize: "0.78rem", color: "var(--muted)", textTransform: "uppercase", letterSpacing: "1px", fontWeight: 700 }}>
+              Kutzbach / Grübler Formula
+            </span>
+            <div style={{ fontFamily: "var(--font-mono)", fontSize: "0.95rem", color: "#f8fafc", marginTop: 2 }}>
+              F = 3(L - 1) - 2J - H = 3({numLinks} - 1) - 2({numJoints}) - {numHigher}
+            </div>
+          </div>
+          <div style={{
+            background: calculatedDof === 1 ? "rgba(34, 197, 94, 0.2)" : "rgba(251, 191, 36, 0.2)",
+            color: calculatedDof === 1 ? "#4ade80" : "#fbbf24",
+            border: `1px solid ${calculatedDof === 1 ? "rgba(34, 197, 94, 0.4)" : "rgba(251, 191, 36, 0.4)"}`,
+            padding: "6px 14px",
+            borderRadius: "8px",
+            fontWeight: "bold",
+            fontSize: "0.95rem",
+          }}>
+            Mobility: {calculatedDof} DOF {calculatedDof === 1 ? "(Constrained Mechanism)" : calculatedDof === 0 ? "(Structure / Frame)" : "(Multi-Degree of Freedom)"}
+          </div>
+        </div>
+
+        <label className="field">
+          <span className="field__label">Motion Type</span>
+          <select
+            className="field__control"
+            name="motion_type"
+            value={form.motion_type}
+            onChange={handleChange}
+          >
+            {MOTION_TYPES.map((type) => (
+              <option key={type} value={type}>
+                {type}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label className="field">
+          <span className="field__label">Input Link / Driver</span>
+          <input
+            className="field__control"
+            name="input_link"
+            placeholder="e.g. Link 1 (Driver / Crank)"
+            value={form.input_link || ""}
+            onChange={handleChange}
+          />
+        </label>
+
+        <label className="field">
+          <span className="field__label">Output Link / Follower</span>
+          <input
+            className="field__control"
+            name="output_link"
+            placeholder="e.g. Output / Rocker / Slider"
+            value={form.output_link || ""}
+            onChange={handleChange}
+          />
+        </label>
+      </div>
+
+      {/* SECTION 4: THUMBNAIL & BACKGROUND IMAGES */}
+      <h3 className="tom-form__section-title" style={{ marginTop: "1.4rem" }}>
+        4. Thumbnail Photo &amp; Visual Backdrop
       </h3>
       <p style={{ margin: "0 0 14px 0", fontSize: "0.86rem", color: "var(--muted)" }}>
-        Add a photo of your mechanism. This image will directly become the thumbnail card in the showcase.
+        Add a photo of your mechanism. This image directly represents your model on the showcase card and header.
       </p>
 
       {/* Live Thumbnail Preview */}
@@ -306,11 +616,10 @@ export default function MechanismForm({ onCancel, onSubmit, submitting, formErro
           )}
           <div style={{ flex: 1 }}>
             <strong style={{ display: "block", fontSize: "0.9rem", color: "#f8fafc", marginBottom: "4px" }}>
-              ✓ Thumbnail Ready {(bgImageUrl || bgImagePreview) && "+ Background Set"}
+              ✓ Cover Photo Set {(bgImageUrl || bgImagePreview) && "+ Background Backdrop Ready"}
             </strong>
             <p style={{ margin: 0, fontSize: "0.82rem", color: "var(--muted)" }}>
-              {imagePreview ? "Mechanism image is set." : "Card background is set."}
-              {(bgImageUrl || bgImagePreview) && " Custom background backdrop applied."}
+              {imagePreview ? "Mechanism card image is active." : "Card background is set."}
             </p>
           </div>
           <button
@@ -322,6 +631,7 @@ export default function MechanismForm({ onCancel, onSubmit, submitting, formErro
               setImageUrlInput("");
               setBgImageUrl("");
               setBgImagePreview("");
+              setForm((cur) => ({ ...cur, cover_image: null, background_image: null }));
               setFiles((cur) => {
                 const copy = { ...cur };
                 delete copy.image;
@@ -330,14 +640,14 @@ export default function MechanismForm({ onCancel, onSubmit, submitting, formErro
               });
             }}
           >
-            ✕ Reset
+            ✕ Reset Visuals
           </button>
         </div>
       )}
 
       <div className="project-form__grid">
         <label className="field">
-          <span className="field__label">Upload Photo File</span>
+          <span className="field__label">Upload Cover Photo File</span>
           <input
             className="field__control"
             type="file"
@@ -345,7 +655,7 @@ export default function MechanismForm({ onCancel, onSubmit, submitting, formErro
             onChange={(e) => handleFileChange("image", e.target.files)}
           />
           <span className="field__hint" style={{ fontSize: "0.74rem", color: "var(--muted)" }}>
-            Select a photo from your computer or phone.
+            Select an image from your computer or phone.
           </span>
         </label>
 
@@ -358,12 +668,12 @@ export default function MechanismForm({ onCancel, onSubmit, submitting, formErro
             onChange={handleUrlChange}
           />
           <span className="field__hint" style={{ fontSize: "0.74rem", color: "var(--muted)" }}>
-            Paste a direct link to any mechanism photo online.
+            Paste a direct URL to any mechanism photo online.
           </span>
         </label>
 
         <label className="field">
-          <span className="field__label">Upload Background Image (Optional)</span>
+          <span className="field__label">Upload Background Backdrop (Optional)</span>
           <input
             className="field__control"
             type="file"
@@ -371,12 +681,12 @@ export default function MechanismForm({ onCancel, onSubmit, submitting, formErro
             onChange={(e) => handleFileChange("background_image", e.target.files)}
           />
           <span className="field__hint" style={{ fontSize: "0.74rem", color: "var(--muted)" }}>
-            Select a local image to use as the backdrop for your card.
+            Optional full-bleed card backdrop.
           </span>
         </label>
 
         <label className="field">
-          <span className="field__label">Or Paste Background Link (Optional)</span>
+          <span className="field__label">Or Paste Background URL (Optional)</span>
           <input
             className="field__control"
             name="background_image"
@@ -384,18 +694,16 @@ export default function MechanismForm({ onCancel, onSubmit, submitting, formErro
             value={bgImageUrl}
             onChange={(e) => setBgImageUrl(e.target.value)}
           />
-          <span className="field__hint" style={{ fontSize: "0.74rem", color: "var(--muted)" }}>
-            Paste an image link to use as the background backdrop.
-          </span>
         </label>
       </div>
 
+      {/* SECTION 5: INTERACTIVE HTML MECHANISM ANIMATION */}
       <h3 className="tom-form__section-title" style={{ marginTop: "1.4rem" }}>
-        4. Interactive Mechanism Animation (HTML Format Only)
+        5. Interactive Mechanism Animation (HTML Format Only)
       </h3>
       <p style={{ margin: "0 0 14px 0", fontSize: "0.86rem", color: "var(--muted)" }}>
-        Upload your mechanism animation file in HTML format (<strong>.html file</strong>) or provide an external web link.
-        A live interactive preview will load below, and your animation will be displayed directly on your mechanism's page!
+        Upload your standalone mechanism animation file in HTML format (<strong>.html file</strong>) or provide an external web link.
+        A live interactive preview will load below, and your animation will be embedded directly on your mechanism's page!
       </p>
 
       {/* Mode Switcher */}
@@ -418,8 +726,8 @@ export default function MechanismForm({ onCancel, onSubmit, submitting, formErro
         </button>
       </div>
 
-      {/* Live Animation & Virtual Mechanism Status Badge */}
-      {(htmlFileObj || form.html_animation_url || files.animation?.[0] || form.animation_url || files.virtual_mechanism?.[0] || form.virtual_mechanism_url) && (
+      {/* Animation Status Card */}
+      {(htmlFileObj || form.html_animation_url) && (
         <div style={{
           display: "flex",
           flexDirection: "column",
@@ -434,7 +742,7 @@ export default function MechanismForm({ onCancel, onSubmit, submitting, formErro
             <div style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "0.84rem", color: "#38bdf8" }}>
               <span>📁</span>
               <span>
-                <strong>HTML File Selected:</strong> {htmlFileObj.name} ({(htmlFileObj.size / 1024).toFixed(1)} KB)
+                <strong>HTML File Attached:</strong> {htmlFileObj.name} ({(htmlFileObj.size / 1024).toFixed(1)} KB)
               </span>
             </div>
           )}
@@ -442,23 +750,7 @@ export default function MechanismForm({ onCancel, onSubmit, submitting, formErro
             <div style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "0.84rem", color: "#38bdf8" }}>
               <span>🌐</span>
               <span>
-                <strong>HTML Animation Linked:</strong> {form.html_animation_url}
-              </span>
-            </div>
-          )}
-          {(files.animation?.[0] || form.animation_url) && (
-            <div style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "0.84rem", color: "#38bdf8" }}>
-              <span>🌀</span>
-              <span>
-                <strong>Animation Media:</strong> {files.animation?.[0]?.name || form.animation_url}
-              </span>
-            </div>
-          )}
-          {(files.virtual_mechanism?.[0] || form.virtual_mechanism_url) && (
-            <div style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "0.84rem", color: "#34d399" }}>
-              <span>🔬</span>
-              <span>
-                <strong>Virtual Mechanism Attached:</strong> {files.virtual_mechanism?.[0]?.name || form.virtual_mechanism_url}
+                <strong>HTML Animation Source:</strong> {form.html_animation_url.startsWith("data:") ? "Embedded Standalone HTML File" : form.html_animation_url}
               </span>
             </div>
           )}
@@ -474,23 +766,23 @@ export default function MechanismForm({ onCancel, onSubmit, submitting, formErro
           background: "rgba(56, 189, 248, 0.04)",
           marginBottom: "16px",
         }}>
-          {htmlFileObj ? (
+          {htmlFileObj || (htmlFilePreview && htmlFilePreview.startsWith("data:text/html")) ? (
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                 <span style={{ fontSize: "1.8rem" }}>🌐</span>
                 <div style={{ textAlign: "left" }}>
-                  <strong style={{ color: "#38bdf8", fontSize: "0.95rem", display: "block" }}>
-                    {htmlFileObj.name}
+                  <strong style={{ display: "block", color: "#f8fafc", fontSize: "0.92rem" }}>
+                    {htmlFileObj?.name || "Active Interactive HTML Animation"}
                   </strong>
-                  <span style={{ fontSize: "0.76rem", color: "var(--muted)" }}>
-                    {(htmlFileObj.size / 1024).toFixed(1)} KB · Ready to preview &amp; upload
+                  <span style={{ fontSize: "0.78rem", color: "#38bdf8" }}>
+                    ✓ Standalone HTML Simulation is loaded and ready
                   </span>
                 </div>
               </div>
               <button
                 type="button"
-                className="button button--danger"
-                style={{ padding: "6px 14px", fontSize: "0.8rem" }}
+                className="button button--ghost"
+                style={{ fontSize: "0.8rem", padding: "6px 14px" }}
                 onClick={() => {
                   setHtmlFileObj(null);
                   setHtmlFilePreview("");
@@ -512,7 +804,7 @@ export default function MechanismForm({ onCancel, onSubmit, submitting, formErro
                 Click to browse or drop your .html animation file here
               </strong>
               <p style={{ margin: "0 0 14px", fontSize: "0.8rem", color: "var(--muted)" }}>
-                Accepts standalone HTML files (.html / .htm) with CSS, SVG, or Canvas animation.
+                Accepts standalone HTML files (.html / .htm) with CSS, SVG, or Canvas simulation.
               </p>
               <label className="button button--primary" style={{ display: "inline-flex", cursor: "pointer", padding: "8px 22px", fontSize: "0.85rem" }}>
                 Select .html File
@@ -564,7 +856,7 @@ export default function MechanismForm({ onCancel, onSubmit, submitting, formErro
               <span style={{ fontSize: "1.2rem" }}>{(htmlFilePreview || isHtmlFormatUrl(form.html_animation_url)) ? "🌐" : "⚠️"}</span>
               <div>
                 <strong style={{ fontSize: "0.88rem", color: (htmlFilePreview || isHtmlFormatUrl(form.html_animation_url)) ? "#38bdf8" : "#f87171" }}>
-                  {(htmlFilePreview || isHtmlFormatUrl(form.html_animation_url)) ? "Live HTML Animation Preview" : "Invalid Format: .html format only"}
+                  {(htmlFilePreview || isHtmlFormatUrl(form.html_animation_url)) ? "Live Interactive HTML Animation Preview" : "Invalid Format: .html format only"}
                 </strong>
                 <span style={{ display: "block", fontSize: "0.76rem", color: "var(--muted)" }}>
                   {(htmlFilePreview || isHtmlFormatUrl(form.html_animation_url))
@@ -607,17 +899,22 @@ export default function MechanismForm({ onCancel, onSubmit, submitting, formErro
         </div>
       )}
 
+      {/* SECTION 6: SUPPLEMENTARY MEDIA, CAD & DOCUMENTATION */}
+      <h3 className="tom-form__section-title" style={{ marginTop: "1.4rem" }}>
+        6. Supplementary Media, CAD &amp; Documentation
+      </h3>
       <div className="project-form__grid">
         <label className="field">
-          <span className="field__label">Upload Animation File (Optional)</span>
+          <span className="field__label">Video Demo URL (Optional)</span>
           <input
             className="field__control"
-            type="file"
-            accept={ACCEPT.animation}
-            onChange={(e) => handleFileChange("animation", e.target.files)}
+            name="video_url"
+            placeholder="YouTube, Vimeo, or Google Drive video link"
+            value={form.video_url || form.video || ""}
+            onChange={handleChange}
           />
           <span className="field__hint" style={{ fontSize: "0.74rem", color: "var(--muted)" }}>
-            Optional animated GIF, MP4, or WebM video file.
+            Direct link to video demonstration.
           </span>
         </label>
 
@@ -631,15 +928,10 @@ export default function MechanismForm({ onCancel, onSubmit, submitting, formErro
             onChange={handleChange}
           />
           <span className="field__hint" style={{ fontSize: "0.74rem", color: "var(--muted)" }}>
-            Link to any supplementary online virtual lab or simulation.
+            Supplementary simulation or virtual lab link.
           </span>
         </label>
-      </div>
 
-      <h3 className="tom-form__section-title" style={{ marginTop: "1.4rem" }}>
-        5. 3D CAD Model & Project Document
-      </h3>
-      <div className="project-form__grid">
         <label className="field">
           <span className="field__label">3D CAD Model (Optional)</span>
           <input
@@ -662,11 +954,22 @@ export default function MechanismForm({ onCancel, onSubmit, submitting, formErro
             onChange={(e) => handleFileChange("document", e.target.files)}
           />
           <span className="field__hint" style={{ fontSize: "0.74rem", color: "var(--muted)" }}>
-            Upload PDF report, PPT synopsis, or project documentation if available.
+            Upload PDF report or documentation.
           </span>
         </label>
-      </div>
 
+        <label className="field field--wide" style={{ gridColumn: "1 / -1" }}>
+          <span className="field__label">Additional Technical Notes / Observations</span>
+          <textarea
+            className="field__control field__control--textarea"
+            name="additional_technical_details"
+            rows={2}
+            placeholder="Add any faculty notes, special kinematic considerations, assembly notes, or references..."
+            value={form.additional_technical_details || ""}
+            onChange={handleChange}
+          />
+        </label>
+      </div>
 
       <div className="project-form__footer" style={{ marginTop: "1.8rem" }}>
         <div className="project-form__message" role="status" aria-live="polite">{formError}</div>
@@ -675,7 +978,7 @@ export default function MechanismForm({ onCancel, onSubmit, submitting, formErro
             Cancel
           </button>
           <button type="submit" className="button button--primary" disabled={submitting}>
-            {submitting ? "Publishing…" : "Publish Mechanism"}
+            {submitting ? "Saving…" : (submitLabel || (isEditing ? "Save Changes" : "Publish Mechanism"))}
           </button>
         </div>
       </div>
