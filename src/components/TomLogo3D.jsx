@@ -3,170 +3,82 @@ import * as THREE from 'three';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { Environment } from '@react-three/drei';
 
-/**
- * Creates an engineered spur gear tooth profile with involute-like trapezoidal flank,
- * proper addendum, dedendum, and root clearance so teeth mesh with zero collision.
- */
-function createInvoluteGearShape(m, z, holeRadius) {
+function createGearShape(radius, teeth, holeRadius) {
   const shape = new THREE.Shape();
-  const pitchRadius = (m * z) / 2;
-  const addendum = 1.0 * m;
-  const dedendum = 1.25 * m;
-  const outerRadius = pitchRadius + addendum;
-  const rootRadius = Math.max(0.3, pitchRadius - dedendum);
-
-  const step = (Math.PI * 2) / z;
-  const halfPitch = step / 2;
-
-  // Standard spur gear tooth proportions
-  const toothHalfAngleTip = step * 0.14;
-  const toothHalfAngleRoot = step * 0.30;
-
-  for (let i = 0; i < z; i++) {
-    const centerAngle = i * step;
-    const aRootLeft  = centerAngle - toothHalfAngleRoot;
-    const aTipLeft   = centerAngle - toothHalfAngleTip;
-    const aTipRight  = centerAngle + toothHalfAngleTip;
-    const aRootRight = centerAngle + toothHalfAngleRoot;
-    const midTrough  = centerAngle + halfPitch;
-
+  const step = (Math.PI * 2) / teeth;
+  const toothWidth = step * 0.25; 
+  const toothHeight = radius * 0.12; 
+  const innerRadius = radius - toothHeight;
+  
+  for (let i = 0; i < teeth; i++) {
+    const angle = i * step;
+    
     if (i === 0) {
-      shape.moveTo(Math.cos(aRootLeft) * rootRadius, Math.sin(aRootLeft) * rootRadius);
+      shape.moveTo(Math.cos(angle - toothWidth) * innerRadius, Math.sin(angle - toothWidth) * innerRadius);
     } else {
-      shape.lineTo(Math.cos(aRootLeft) * rootRadius, Math.sin(aRootLeft) * rootRadius);
+      shape.lineTo(Math.cos(angle - toothWidth) * innerRadius, Math.sin(angle - toothWidth) * innerRadius);
     }
-
-    // Tooth flank rising to tip
-    shape.lineTo(Math.cos(aTipLeft) * outerRadius, Math.sin(aTipLeft) * outerRadius);
-    // Tip land
-    shape.lineTo(Math.cos(aTipRight) * outerRadius, Math.sin(aTipRight) * outerRadius);
-    // Tooth flank falling to root
-    shape.lineTo(Math.cos(aRootRight) * rootRadius, Math.sin(aRootRight) * rootRadius);
-    // Root trough fillet
-    shape.lineTo(Math.cos(midTrough) * rootRadius, Math.sin(midTrough) * rootRadius);
+    
+    shape.lineTo(Math.cos(angle - toothWidth*0.5) * radius, Math.sin(angle - toothWidth*0.5) * radius);
+    shape.lineTo(Math.cos(angle + toothWidth*0.5) * radius, Math.sin(angle + toothWidth*0.5) * radius);
+    shape.lineTo(Math.cos(angle + toothWidth) * innerRadius, Math.sin(angle + toothWidth) * innerRadius);
   }
   shape.closePath();
-
-  // Central axle hole
+  
   if (holeRadius > 0) {
     const holePath = new THREE.Path();
     holePath.absarc(0, 0, holeRadius, 0, Math.PI * 2, false);
     shape.holes.push(holePath);
-
-    // Decorative weight-reduction spoke cutouts for larger gears
-    if (z >= 16) {
-      const numCutouts = z >= 24 ? 4 : 3;
-      const cutoutR = pitchRadius * 0.22;
-      const cutoutDist = (holeRadius + pitchRadius) * 0.50;
-      for (let c = 0; c < numCutouts; c++) {
-        const cAngle = (c * Math.PI * 2) / numCutouts + Math.PI / numCutouts;
-        const cx = Math.cos(cAngle) * cutoutDist;
-        const cy = Math.sin(cAngle) * cutoutDist;
-        const cutoutPath = new THREE.Path();
-        cutoutPath.absarc(cx, cy, cutoutR, 0, Math.PI * 2, false);
-        shape.holes.push(cutoutPath);
-      }
-    }
   }
-
   return shape;
 }
-
-// Gear train kinematic parameters (identical module m ensures perfect tooth meshing)
-const MODULE = 0.28;
-const Z1 = 24; // Center driver gear
-const Z2 = 16; // Top-right driven gear
-const Z3 = 12; // Bottom-left driven gear
-
-const R1 = (MODULE * Z1) / 2; // 3.36
-const R2 = (MODULE * Z2) / 2; // 2.24
-const R3 = (MODULE * Z3) / 2; // 1.68
-
-const DIST_12 = R1 + R2; // 5.60 exact pitch contact distance
-const DIST_13 = R1 + R3; // 5.04 exact pitch contact distance
-
-const ALPHA_2 = Math.PI / 4; // 45 degrees (top-right)
-const POS_2 = [
-  DIST_12 * Math.cos(ALPHA_2),
-  DIST_12 * Math.sin(ALPHA_2),
-  -0.18,
-];
-
-const ALPHA_3 = (215 * Math.PI) / 180; // 215 degrees (bottom-left)
-const POS_3 = [
-  DIST_13 * Math.cos(ALPHA_3),
-  DIST_13 * Math.sin(ALPHA_3),
-  -0.18,
-];
 
 function GearSystem() {
   const group = useRef();
   const gear1 = useRef();
   const gear2 = useRef();
   const gear3 = useRef();
-  const angle1Ref = useRef(0);
 
   const { shape1, shape2, shape3, extrudeSettings } = useMemo(() => {
     return {
-      shape1: createInvoluteGearShape(MODULE, Z1, 0.8),
-      shape2: createInvoluteGearShape(MODULE, Z2, 0.55),
-      shape3: createInvoluteGearShape(MODULE, Z3, 0.42),
-      extrudeSettings: {
-        depth: 0.36,
-        bevelEnabled: true,
-        bevelSegments: 3,
-        steps: 1,
-        bevelSize: 0.035,
-        bevelThickness: 0.035,
-      },
+      shape1: createGearShape(3.5, 24, 0.8),
+      shape2: createGearShape(2.5, 16, 0.5),
+      shape3: createGearShape(1.8, 12, 0.4),
+      extrudeSettings: { depth: 0.5, bevelEnabled: true, bevelSegments: 2, steps: 1, bevelSize: 0.05, bevelThickness: 0.05 }
     };
   }, []);
 
   useFrame((state, delta) => {
     const t = state.clock.getElapsedTime();
-    // Gentle spatial floating
-    if (group.current) {
-      group.current.position.y = Math.sin(t * 0.7) * 0.2;
-    }
-
-    // Continuous kinematic rotation
-    const baseSpeed = 0.35;
-    angle1Ref.current += delta * baseSpeed;
-    const a1 = angle1Ref.current;
-
-    // Kinematic conjugate gear rotation with exact pitch rolling & tooth-valley phase locking:
-    // Gear 1 (driver) rotates CCW
-    // Gear 2 (driven) rotates CW with exact velocity ratio Z1 / Z2
-    // Gear 3 (driven) rotates CW with exact velocity ratio Z1 / Z3
-    if (gear1.current) {
-      gear1.current.rotation.z = a1;
-    }
-    if (gear2.current) {
-      gear2.current.rotation.z = -(Z1 / Z2) * (a1 - ALPHA_2) + ALPHA_2 + Math.PI + Math.PI / Z2;
-    }
-    if (gear3.current) {
-      gear3.current.rotation.z = -(Z1 / Z3) * (a1 - ALPHA_3) + ALPHA_3 + Math.PI + Math.PI / Z3;
-    }
+    // Smooth floating for the entire group
+    group.current.position.y = Math.sin(t / 2) / 3;
+    
+    // Constant, slow mechanical rotation without mouse interaction (removed "clingy" cursor tracking)
+    const speed = 0.4;
+    if (gear1.current) gear1.current.rotation.z += delta * speed;
+    if (gear2.current) gear2.current.rotation.z -= delta * speed * 1.5;
+    if (gear3.current) gear3.current.rotation.z += delta * speed * 2.0;
   });
 
   return (
-    <group ref={group} rotation={[0.38, -0.22, 0]}>
-      {/* Center Driver Gear (24T - Cyan) */}
-      <mesh ref={gear1} position={[0, 0, -0.18]}>
+    <group ref={group} rotation={[0.4, -0.2, 0]}>
+      {/* Center Gear (24 teeth) */}
+      <mesh ref={gear1} position={[0, 0, -0.25]}>
         <extrudeGeometry args={[shape1, extrudeSettings]} />
-        <meshStandardMaterial color="#38bdf8" metalness={0.85} roughness={0.25} />
+        <meshStandardMaterial color="#38bdf8" metalness={0.8} roughness={0.3} />
       </mesh>
-
-      {/* Top Right Driven Gear (16T - Indigo) */}
-      <mesh ref={gear2} position={POS_2}>
+      
+      {/* Top Right Gear (16 teeth) */}
+      {/* Distance = innerRadius1 + innerRadius2 + roughly 1 tooth height */}
+      <mesh ref={gear2} position={[3.9, 3.9, -0.25]} rotation={[0, 0, 0.15]}>
         <extrudeGeometry args={[shape2, extrudeSettings]} />
-        <meshStandardMaterial color="#818cf8" metalness={0.82} roughness={0.28} />
+        <meshStandardMaterial color="#818cf8" metalness={0.7} roughness={0.3} />
       </mesh>
 
-      {/* Bottom Left Driven Gear (12T - Amber) */}
-      <mesh ref={gear3} position={POS_3}>
+      {/* Bottom Left Gear (12 teeth) */}
+      <mesh ref={gear3} position={[-3.6, -3.3, -0.25]} rotation={[0, 0, -0.1]}>
         <extrudeGeometry args={[shape3, extrudeSettings]} />
-        <meshStandardMaterial color="#fbbf24" metalness={0.85} roughness={0.25} />
+        <meshStandardMaterial color="#fbbf24" metalness={0.8} roughness={0.3} />
       </mesh>
     </group>
   );
@@ -183,19 +95,8 @@ export default function TomLogo3D() {
   }, []);
 
   return (
-    <div
-      style={{
-        width: '100%',
-        height: '100%',
-        cursor: 'default',
-        userSelect: 'none',
-        position: 'absolute',
-        top: 0,
-        left: 0,
-      }}
-      className="tom-logo-3d-container"
-    >
-      <Canvas dpr={[1, 1.5]} camera={{ position: [0, 0, isMobile ? 15 : 10.5], fov: 45 }}>
+    <div style={{ width: '100%', height: '100%', cursor: 'default', userSelect: 'none', position: 'absolute', top: 0, left: 0 }} className="tom-logo-3d-container">
+      <Canvas dpr={[1, 1.5]} camera={{ position: [0, 0, isMobile ? 16 : 11], fov: 45 }}>
         <ambientLight intensity={1.2} />
         <directionalLight position={[5, 10, 10]} intensity={2.5} color="#38bdf8" />
         <directionalLight position={[-5, -10, -5]} intensity={1.5} color="#818cf8" />
