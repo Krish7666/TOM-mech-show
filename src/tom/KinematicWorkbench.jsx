@@ -62,15 +62,24 @@ export default function KinematicWorkbench({ initialMechanism = null, onApply = 
         </div>
       </div>
 
-      {/* ── WORKBENCH MODE SWITCHER ── */}
+      {/* ── WORKBENCH MODE INDICATOR ── */}
       <div style={{ display: "flex", gap: "10px", margin: "16px 0 20px 0", flexWrap: "wrap", alignItems: "center" }}>
-        <button
-          type="button"
+        <span
           className="button button--primary"
-          style={{ fontSize: "0.85rem", padding: "8px 16px" }}
+          style={{
+            fontSize: "0.85rem",
+            padding: "8px 18px",
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "8px",
+            cursor: "default",
+            boxShadow: "0 2px 14px rgba(56, 189, 248, 0.35)",
+            userSelect: "none"
+          }}
         >
+          <span style={{ display: "inline-block", width: 7, height: 7, borderRadius: "50%", background: "#38bdf8", boxShadow: "0 0 8px #38bdf8" }} />
           ⚙️ Mobility &amp; DOF Calculator
-        </button>
+        </span>
       </div>
 
       {/* ── PRESETS ──────────────────────────────────────────────────────── */}

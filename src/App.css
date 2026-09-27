@@ -421,14 +421,20 @@ img {
   width: 100%;
   padding-bottom: 8px; /* space for scrollbar */
   -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(56, 189, 248, 0.35) transparent;
 }
 
 .cta-row::-webkit-scrollbar {
   height: 6px;
 }
 .cta-row::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(56, 189, 248, 0.35);
   border-radius: 10px;
+}
+.cta-row::-webkit-scrollbar-track {
+  background: transparent;
 }
 
 .primary-btn,
