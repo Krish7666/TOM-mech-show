@@ -5,24 +5,34 @@
 // category dropdown both read from this list.
 export const TOM_CATEGORIES = [
   "Four-bar",
+  "Six-bar",
   "Slider-crank",
+  "Double slider-crank",
   "Quick-return",
+  "Straight-line mechanisms",
   "Gear mechanisms",
   "Cam mechanisms",
+  "Intermittent motion",
   "Couplings",
   "Steering mechanisms",
+  "Robotic & Parallel linkages",
   "Other",
 ];
 
 export const TOM_CATEGORY_META = {
-  "Four-bar":            { icon: "⚙️", color: "#38bdf8", bg: "rgba(56, 189, 248, 0.12)" },
-  "Slider-crank":        { icon: "🔩", color: "#34d399", bg: "rgba(52, 211, 153, 0.12)" },
-  "Quick-return":        { icon: "↩️", color: "#fbbf24", bg: "rgba(251, 191, 36, 0.12)" },
-  "Gear mechanisms":     { icon: "🛠️", color: "#818cf8", bg: "rgba(129, 140, 248, 0.12)" },
-  "Cam mechanisms":      { icon: "🔵", color: "#f472b6", bg: "rgba(244, 114, 182, 0.12)" },
-  "Couplings":           { icon: "🔗", color: "#fb923c", bg: "rgba(251, 146, 60, 0.12)" },
-  "Steering mechanisms": { icon: "🚗", color: "#a3e635", bg: "rgba(163, 230, 53, 0.12)" },
-  "Other":               { icon: "🔬", color: "#c084fc", bg: "rgba(192, 132, 252, 0.12)" },
+  "Four-bar":                    { icon: "⚙️", color: "#38bdf8", bg: "rgba(56, 189, 248, 0.12)" },
+  "Six-bar":                     { icon: "🔄", color: "#06b6d4", bg: "rgba(6, 182, 212, 0.12)" },
+  "Slider-crank":                { icon: "🔩", color: "#34d399", bg: "rgba(52, 211, 153, 0.12)" },
+  "Double slider-crank":         { icon: "↔️", color: "#10b981", bg: "rgba(16, 185, 129, 0.12)" },
+  "Quick-return":                { icon: "↩️", color: "#fbbf24", bg: "rgba(251, 191, 36, 0.12)" },
+  "Straight-line mechanisms":    { icon: "📏", color: "#f59e0b", bg: "rgba(245, 158, 11, 0.12)" },
+  "Gear mechanisms":             { icon: "🛠️", color: "#818cf8", bg: "rgba(129, 140, 248, 0.12)" },
+  "Cam mechanisms":              { icon: "🔵", color: "#f472b6", bg: "rgba(244, 114, 182, 0.12)" },
+  "Intermittent motion":         { icon: "⏱️", color: "#ec4899", bg: "rgba(236, 72, 153, 0.12)" },
+  "Couplings":                   { icon: "🔗", color: "#fb923c", bg: "rgba(251, 146, 60, 0.12)" },
+  "Steering mechanisms":         { icon: "🚗", color: "#a3e635", bg: "rgba(163, 230, 53, 0.12)" },
+  "Robotic & Parallel linkages": { icon: "🤖", color: "#e879f9", bg: "rgba(232, 121, 249, 0.12)" },
+  "Other":                       { icon: "🔬", color: "#c084fc", bg: "rgba(192, 132, 252, 0.12)" },
 };
 
 export function tomCategoryMeta(category) {

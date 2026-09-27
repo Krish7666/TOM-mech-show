@@ -4,6 +4,7 @@ import {
   ACCEPT,
   ACADEMIC_YEARS,
   TOM_CATEGORIES,
+  tomCategoryMeta,
 } from "./tomConstants";
 import { validateUploadFile } from "./tomApi";
 
@@ -120,7 +121,19 @@ export default function MechanismForm({
 
   function handleChange(e) {
     const { name, value } = e.target;
-    setForm((cur) => ({ ...cur, [name]: value }));
+    setForm((cur) => {
+      const next = { ...cur, [name]: value };
+      if (name === "category") {
+        if (value === "Six-bar" && (cur.num_links === "4" || !cur.num_links)) {
+          next.num_links = "6";
+          next.num_joints = "7";
+        } else if (value === "Four-bar" && cur.num_links === "6") {
+          next.num_links = "4";
+          next.num_joints = "4";
+        }
+      }
+      return next;
+    });
     if (name === "html_animation_url" && localError) {
       setLocalError("");
     }
@@ -361,11 +374,14 @@ export default function MechanismForm({
             onChange={handleChange}
             required
           >
-            {TOM_CATEGORIES.map((cat) => (
-              <option key={cat} value={cat}>
-                {cat}
-              </option>
-            ))}
+            {TOM_CATEGORIES.map((cat) => {
+              const meta = tomCategoryMeta(cat);
+              return (
+                <option key={cat} value={cat}>
+                  {meta?.icon ? `${meta.icon}  ` : ""}{cat}
+                </option>
+              );
+            })}
           </select>
         </label>
 

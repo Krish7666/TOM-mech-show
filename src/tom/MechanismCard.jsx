@@ -33,12 +33,17 @@ const MechanismCard = memo(function MechanismCard({ mechanism, onView }) {
   // Vibrant gradient themes per category for rich visual variety
   const categoryGradients = {
     "Four-bar": "linear-gradient(135deg, rgba(56, 189, 248, 0.22), rgba(14, 165, 233, 0.06))",
+    "Six-bar": "linear-gradient(135deg, rgba(6, 182, 212, 0.22), rgba(8, 145, 178, 0.06))",
     "Slider-crank": "linear-gradient(135deg, rgba(52, 211, 153, 0.22), rgba(16, 185, 129, 0.06))",
+    "Double slider-crank": "linear-gradient(135deg, rgba(16, 185, 129, 0.22), rgba(5, 150, 105, 0.06))",
     "Quick-return": "linear-gradient(135deg, rgba(251, 191, 36, 0.22), rgba(245, 158, 11, 0.06))",
+    "Straight-line mechanisms": "linear-gradient(135deg, rgba(245, 158, 11, 0.22), rgba(217, 119, 6, 0.06))",
     "Gear mechanisms": "linear-gradient(135deg, rgba(129, 140, 248, 0.22), rgba(99, 102, 241, 0.06))",
     "Cam mechanisms": "linear-gradient(135deg, rgba(244, 114, 182, 0.22), rgba(236, 72, 153, 0.06))",
+    "Intermittent motion": "linear-gradient(135deg, rgba(236, 72, 153, 0.22), rgba(219, 39, 119, 0.06))",
     "Couplings": "linear-gradient(135deg, rgba(251, 146, 60, 0.22), rgba(234, 88, 12, 0.06))",
     "Steering mechanisms": "linear-gradient(135deg, rgba(163, 230, 53, 0.22), rgba(132, 204, 22, 0.06))",
+    "Robotic & Parallel linkages": "linear-gradient(135deg, rgba(232, 121, 249, 0.22), rgba(192, 38, 211, 0.06))",
     "Other": "linear-gradient(135deg, rgba(192, 132, 252, 0.22), rgba(168, 85, 247, 0.06))",
   };
   const cardGradient = categoryGradients[category] || categoryGradients["Other"];
