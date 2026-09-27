@@ -327,6 +327,8 @@ export default function MechanismDetail({ id, isAdmin, onBack, onChanged }) {
     (mechanism.background_image && typeof mechanism.background_image === "string" && !mechanism.background_image.startsWith("data:image/svg+xml") ? mechanism.background_image : null) ||
     (mechanism.bg_image_url && typeof mechanism.bg_image_url === "string" && !mechanism.bg_image_url.startsWith("data:image/svg+xml") ? mechanism.bg_image_url : null);
 
+  const meta = tomCategoryMeta(mechanism.category);
+
   return (
     <section className="tom-detail">
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12, marginBottom: 8 }}>
@@ -904,7 +906,7 @@ function VideoPlayerItem({ row }) {
   return <video className="tom-media-item__video" src={row.file_url} controls preload="metadata" />;
 }
 
-function MediaPanel({ items, tab, isAdmin, onDelete, mechanism, htmlAnimationUrl, onOpenVirtualLab }) {
+function MediaPanel({ items, tab, isAdmin, onDelete, mechanism, htmlAnimationUrl }) {
   const [animReloadKey, setAnimReloadKey] = useState(0);
 
   if (tab === "Animation") {
