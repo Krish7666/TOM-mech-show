@@ -295,8 +295,31 @@ export default function App() {
         </div>
       </header>
 
+      {/* ── BACKGROUND 3D ANIMATION (HOME ONLY) ── */}
+      {page === "home" && (
+        <div
+          className="hero-3d-bg"
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            width: "100%",
+            height: "100%",
+            zIndex: 0,
+            pointerEvents: "none",
+            overflow: "hidden",
+            opacity: 0.85,
+          }}
+          aria-hidden="true"
+        >
+          <Suspense fallback={null}>
+            <TomLogo3D />
+          </Suspense>
+        </div>
+      )}
+
       {/* ── APP BODY CONTENT WRAPPER ── */}
-      <div className="app-body-content">
+      <div className="app-body-content" style={{ position: "relative", zIndex: 1 }}>
         {/* ── TELEMETRY BAR ── */}
         <div className="system-telemetry-bar">
           <div className="telemetry-inner">
@@ -422,13 +445,6 @@ export default function App() {
         {/* HOME */}
         {page === "home" && (
           <>
-            {/* FIXED 3D BACKGROUND */}
-            <div className="hero-3d-bg" style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, zIndex: -1, opacity: 1 }}>
-              <Suspense fallback={<div style={{ height: "100%", display: "flex", alignItems: "center", justifyContent: "center", color: "#38bdf8" }}>Loading Interactive Background...</div>}>
-                <TomLogo3D />
-              </Suspense>
-            </div>
-
             <section className="hero-panel" style={{ display: "flex", flexDirection: "column", alignItems: "center", position: "relative", minHeight: "80vh", justifyContent: "center", background: "transparent", border: "none", boxShadow: "none", maxWidth: "100%" }}>
               
               <div className="hero-copy-block" style={{ zIndex: 2, position: "relative", marginTop: 0, background: "rgba(15, 23, 42, 0.75)", padding: "2.5rem", borderRadius: "28px", backdropFilter: "blur(16px)", border: "1px solid rgba(255, 255, 255, 0.08)", maxWidth: "100%", width: "100%", overflow: "hidden", boxShadow: "0 16px 40px rgba(0, 0, 0, 0.3)" }}>
