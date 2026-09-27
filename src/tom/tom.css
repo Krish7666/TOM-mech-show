@@ -38,13 +38,11 @@
 }
 
 .section-tab--active {
-  background: rgba(251, 191, 36, 0.18) !important;
-  border-color: rgba(251, 191, 36, 0.5) !important;
-  color: var(--gold) !important;
+  background: rgba(59, 130, 246, 0.14) !important;
+  border-color: rgba(59, 130, 246, 0.4) !important;
+  color: #60a5fa !important;
   font-weight: 700;
-  box-shadow:
-    0 0 16px rgba(251, 191, 36, 0.3),
-    inset 0 0 6px rgba(251, 191, 36, 0.1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 }
 
 /* ─── TOM SHOWCASE HERO ───────────────────────────────────────────────────── */
@@ -106,9 +104,9 @@
 }
 
 .tom-card:hover {
-  transform: translateY(-6px) scale(1.01);
-  border-color: rgba(56, 189, 248, 0.55);
-  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.5), 0 0 28px rgba(56, 189, 248, 0.22), 0 0 12px rgba(129, 140, 248, 0.15);
+  transform: translateY(-4px);
+  border-color: rgba(59, 130, 246, 0.35);
+  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.35);
 }
 
 .tom-card__media {

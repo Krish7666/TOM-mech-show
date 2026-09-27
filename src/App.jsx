@@ -431,8 +431,8 @@ export default function App() {
 
             <section className="hero-panel" style={{ display: "flex", flexDirection: "column", alignItems: "center", position: "relative", minHeight: "80vh", justifyContent: "center", background: "transparent", border: "none", boxShadow: "none", maxWidth: "100%" }}>
               
-              <div className="hero-copy-block" style={{ zIndex: 2, position: "relative", marginTop: 0, background: "rgba(3, 7, 18, 0.7)", padding: "2.5rem", borderRadius: "28px", backdropFilter: "blur(16px)", border: "1px solid rgba(255, 255, 255, 0.1)", maxWidth: "100%", width: "100%", overflow: "hidden", boxShadow: "0 12px 40px rgba(0,0,0,0.5)" }}>
-                <div className="hero-badge" style={{ margin: "0 auto 1.5rem auto", background: "rgba(0,0,0,0.4)" }}>
+              <div className="hero-copy-block" style={{ zIndex: 2, position: "relative", marginTop: 0, background: "rgba(15, 23, 42, 0.75)", padding: "2.5rem", borderRadius: "28px", backdropFilter: "blur(16px)", border: "1px solid rgba(255, 255, 255, 0.08)", maxWidth: "100%", width: "100%", overflow: "hidden", boxShadow: "0 16px 40px rgba(0, 0, 0, 0.3)" }}>
+                <div className="hero-badge" style={{ margin: "0 auto 1.5rem auto", background: "rgba(30, 41, 59, 0.65)" }}>
                   <span className="hero-badge__dot" />
                   TE Mech · 2025-28 Batch
                 </div>
