@@ -164,12 +164,13 @@ export default function MechanismDetail({ id, isAdmin, onBack, onChanged }) {
   }, [mechanism, media]);
 
   const mediaByTab = useMemo(() => {
-    const groups = { Images: [], Videos: [], Animation: [], "Virtual Lab": [], Documents: [] };
+    const groups = { Images: [], Videos: [], Animation: [], "CAD / 3D": [], Documents: [] };
     media.forEach((m) => {
       const tab = tabForType(m.file_type);
       if (groups[tab]) groups[tab].push(m);
     });
 
+    // 1. Uploaded HTML Animation
     if (htmlAnimationUrl && !groups.Animation.some((v) => v.file_url === htmlAnimationUrl)) {
       groups.Animation.unshift({
         id: "student-html-anim-url",
@@ -180,37 +181,27 @@ export default function MechanismDetail({ id, isAdmin, onBack, onChanged }) {
         is_embed: true,
         is_html: true,
       });
-    } else if (mechanism?.animation_url) {
-      const animLink = mechanism.animation_url.trim();
-      if (animLink && !groups.Animation.some((v) => v.file_url === animLink)) {
-        groups.Animation.push({
-          id: "student-anim-url",
+    }
+
+    // 2. Uploaded / provided Video (ONLY if provided, not data URLs)
+    const directVideo = (mechanism?.video_url || mechanism?.video || "").trim();
+    if (directVideo && isSafeUrl(directVideo) && !directVideo.startsWith("data:")) {
+      const embed = getVideoEmbedUrl(directVideo);
+      if (!groups.Videos.some((v) => v.file_url === directVideo || (embed && v.file_url === embed))) {
+        groups.Videos.push({
+          id: "mech-video-url",
           mechanism_id: id,
-          file_type: "animation",
-          file_name: "Student Custom Animation",
-          file_url: animLink,
-          is_embed: true,
+          file_type: "video",
+          file_name: "Working Demonstration Video",
+          file_url: embed || directVideo,
+          is_embed: Boolean(embed),
         });
       }
     }
 
-    if (mechanism?.virtual_mechanism_url) {
-      const vmLink = mechanism.virtual_mechanism_url.trim();
-      if (vmLink && !groups["Virtual Lab"].some((v) => v.file_url === vmLink)) {
-        groups["Virtual Lab"].push({
-          id: "student-vm-url",
-          mechanism_id: id,
-          file_type: "virtual_mechanism",
-          file_name: "Student Virtual Mechanism",
-          file_url: vmLink,
-          is_embed: true,
-        });
-      }
-    }
-
-    if (mechanism?.external_links && Array.isArray(mechanism.external_links)) {
+    if (Array.isArray(mechanism?.external_links)) {
       mechanism.external_links.forEach((link, idx) => {
-        if (!link) return;
+        if (!link || typeof link !== "string" || link.startsWith("data:")) return;
         const embed = getVideoEmbedUrl(link);
         if (embed && !groups.Videos.some((v) => v.file_url === link || v.file_url === embed)) {
           groups.Videos.push({
@@ -225,17 +216,40 @@ export default function MechanismDetail({ id, isAdmin, onBack, onChanged }) {
       });
     }
 
+    // 3. Uploaded CAD Model
+    const directCad = (mechanism?.cad_model_url || "").trim();
+    if (directCad && isSafeUrl(directCad) && !groups["CAD / 3D"].some((v) => v.file_url === directCad)) {
+      groups["CAD / 3D"].push({
+        id: "student-cad-url",
+        mechanism_id: id,
+        file_type: "cad",
+        file_name: "3D CAD Model",
+        file_url: directCad,
+      });
+    }
+
     return groups;
   }, [media, mechanism, id, htmlAnimationUrl]);
 
+  // Only show tabs for items that have actually been uploaded by the student
   const availableTabs = useMemo(
     () =>
       TABS.filter((t) => {
-        if (t === "Overview" || t === "Animation") return true;
-        return mediaByTab[t]?.length > 0;
+        if (t === "Overview") return true;
+        if (t === "Animation") {
+          return Boolean(htmlAnimationUrl || (mediaByTab.Animation && mediaByTab.Animation.length > 0));
+        }
+        return (mediaByTab[t] && mediaByTab[t].length > 0);
       }),
-    [mediaByTab],
+    [mediaByTab, htmlAnimationUrl],
   );
+
+  // Automatically keep activeTab valid if a tab is not available
+  useEffect(() => {
+    if (availableTabs.length > 0 && !availableTabs.includes(activeTab)) {
+      setActiveTab(availableTabs[0]);
+    }
+  }, [availableTabs, activeTab]);
 
 
   async function handleDeleteMechanism() {
@@ -446,13 +460,16 @@ export default function MechanismDetail({ id, isAdmin, onBack, onChanged }) {
         </>
       )}
 
-      {Array.isArray(mechanism.external_links) && mechanism.external_links.length > 0 && (
+      {Array.isArray(mechanism.external_links) &&
+        mechanism.external_links.filter((url) => typeof url === "string" && isSafeUrl(url) && !url.trim().startsWith("data:")).length > 0 && (
         <>
           <h2 className="tom-detail__section-title">External Links</h2>
           <ul className="tom-external-links">
-            {mechanism.external_links.filter(isSafeUrl).map((url) => (
-              <li key={url}><a href={url} target="_blank" rel="noopener noreferrer">{url}</a></li>
-            ))}
+            {mechanism.external_links
+              .filter((url) => typeof url === "string" && isSafeUrl(url) && !url.trim().startsWith("data:"))
+              .map((url) => (
+                <li key={url}><a href={url} target="_blank" rel="noopener noreferrer">{url}</a></li>
+              ))}
           </ul>
         </>
       )}
@@ -512,6 +529,7 @@ function StudentCustomAnimationViewer({ htmlUrl, mechanism, onReload, reloadKey 
   }
 
   const hasCustomHtml = Boolean(htmlUrl && isSafeUrl(htmlUrl));
+  if (!hasCustomHtml) return null;
 
   return (
     <div
@@ -823,23 +841,38 @@ function MediaPanel({ items, tab, isAdmin, onDelete, mechanism, htmlAnimationUrl
   const [animReloadKey, setAnimReloadKey] = useState(0);
 
   if (tab === "Animation") {
+    // Only genuine uploaded animation files are shown here. Videos are never shown in Animation tab.
+    const nonHtmlAnimationItems = items.filter((row) => row.file_url !== htmlAnimationUrl && row.file_type === "animation");
+
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
-        {/* Clean full-width Student Uploaded Animation */}
-        <div style={{ width: "100%", display: "flex", flexDirection: "column" }}>
-          <StudentCustomAnimationViewer
-            htmlUrl={htmlAnimationUrl}
-            mechanism={mechanism}
-            reloadKey={animReloadKey}
-            onReload={() => setAnimReloadKey((k) => k + 1)}
-          />
-        </div>
+        {/* Full-width Student Uploaded HTML Animation */}
+        {htmlAnimationUrl && (
+          <div style={{ width: "100%", display: "flex", flexDirection: "column" }}>
+            <StudentCustomAnimationViewer
+              htmlUrl={htmlAnimationUrl}
+              mechanism={mechanism}
+              reloadKey={animReloadKey}
+              onReload={() => setAnimReloadKey((k) => k + 1)}
+            />
+          </div>
+        )}
 
-        {items.length > 0 && (
+        {/* Other genuine uploaded animations (e.g. GIF) */}
+        {nonHtmlAnimationItems.length > 0 && (
           <div className="tom-media-gallery" style={{ marginTop: 12 }}>
-            {items.map((row) => (
+            {nonHtmlAnimationItems.map((row) => (
               <div key={row.id} className="tom-media-item">
-                <VideoPlayerItem row={row} />
+                {/\.(gif)($|\?)/i.test(row.file_url) ? (
+                  <img className="tom-media-item__image" src={row.file_url} alt={row.file_name} />
+                ) : (
+                  <iframe
+                    src={row.file_url}
+                    title={row.file_name}
+                    sandbox="allow-scripts allow-popups allow-forms allow-same-origin"
+                    style={{ width: "100%", height: 420, border: 0, borderRadius: 12 }}
+                  />
+                )}
                 <div className="tom-media-item__caption">
                   <span>{row.file_name}</span>
                   {isAdmin && (

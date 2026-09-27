@@ -81,10 +81,10 @@ export default function StudentAnimationsPage({ onNavigate, initialMechanismId }
     }
     if (!selectedId && mechanismsWithUploads.length > 0) {
       setSelectedId(mechanismsWithUploads[0].id);
-    } else if (!selectedId && mechanisms.length > 0) {
-      setSelectedId(mechanisms[0].id);
+    } else if (selectedId && !mechanismsWithUploads.some((m) => String(m.id) === String(selectedId)) && mechanismsWithUploads.length > 0) {
+      setSelectedId(mechanismsWithUploads[0].id);
     }
-  }, [mechanismsWithUploads, mechanisms, selectedId]);
+  }, [mechanismsWithUploads, selectedId]);
 
   // Listen to hash changes while on this page
   useEffect(() => {
@@ -110,12 +110,11 @@ export default function StudentAnimationsPage({ onNavigate, initialMechanismId }
 
   const activeMechanism = useMemo(() => {
     return (
-      mechanisms.find((m) => String(m.id) === String(selectedId)) ||
+      mechanismsWithUploads.find((m) => String(m.id) === String(selectedId)) ||
       mechanismsWithUploads[0] ||
-      mechanisms[0] ||
       null
     );
-  }, [mechanisms, selectedId, mechanismsWithUploads]);
+  }, [selectedId, mechanismsWithUploads]);
 
   // Extract student HTML animation URL
   const htmlUrl = useMemo(() => {
@@ -218,8 +217,8 @@ export default function StudentAnimationsPage({ onNavigate, initialMechanismId }
         </span>
       </div>
 
-      {/* Mechanism Selector Tabs / Pills */}
-      {mechanisms.length > 1 && (
+      {/* Mechanism Selector Tabs / Pills: Only show mechanisms with uploaded assets */}
+      {mechanismsWithUploads.length > 1 && (
         <div
           style={{
             display: "flex",
@@ -230,17 +229,7 @@ export default function StudentAnimationsPage({ onNavigate, initialMechanismId }
             scrollbarWidth: "thin",
           }}
         >
-          {mechanisms.map((m) => {
-            const hasUpload =
-              m.html_animation_url ||
-              m.animation_url ||
-              m.cad_model_url ||
-              (Array.isArray(m.media) &&
-                m.media.some((row) =>
-                  row.file_type === "animation" ||
-                  row.file_type === "cad" ||
-                  row.format === "html"
-                ));
+          {mechanismsWithUploads.map((m) => {
             const isSelected = String(m.id) === String(selectedId);
             const mMeta = tomCategoryMeta(m.category);
 
@@ -274,28 +263,26 @@ export default function StudentAnimationsPage({ onNavigate, initialMechanismId }
               >
                 <span>{mMeta?.icon || "⚙️"}</span>
                 <span>{m.name}</span>
-                {hasUpload && (
-                  <span
-                    style={{
-                      fontSize: "0.65rem",
-                      padding: "1px 5px",
-                      borderRadius: "6px",
-                      background: "rgba(56, 189, 248, 0.2)",
-                      color: "#38bdf8",
-                      fontWeight: 700,
-                    }}
-                  >
-                    FILE
-                  </span>
-                )}
+                <span
+                  style={{
+                    fontSize: "0.65rem",
+                    padding: "1px 5px",
+                    borderRadius: "6px",
+                    background: "rgba(56, 189, 248, 0.2)",
+                    color: "#38bdf8",
+                    fontWeight: 700,
+                  }}
+                >
+                  LIVE
+                </span>
               </button>
             );
           })}
         </div>
       )}
 
-      {/* Empty State */}
-      {mechanisms.length === 0 && (
+      {/* Empty State: Shown if no mechanisms have uploaded animations or CAD models */}
+      {mechanismsWithUploads.length === 0 && (
         <div
           style={{
             textAlign: "center",
@@ -306,28 +293,28 @@ export default function StudentAnimationsPage({ onNavigate, initialMechanismId }
           }}
         >
           <span style={{ fontSize: "3rem", display: "block", marginBottom: 16 }}>
-            📭
+            🌀
           </span>
           <h3 style={{ color: "#f8fafc", margin: "0 0 8px" }}>
-            No Mechanisms Submitted Yet
+            No Student Animations Uploaded Yet
           </h3>
           <p
             style={{
               color: "#94a3b8",
               margin: "0 0 20px",
-              maxWidth: 400,
+              maxWidth: 420,
               marginInline: "auto",
               lineHeight: 1.5,
             }}
           >
-            Submit your kinematic mechanism project with your custom HTML animation or 3D CAD model.
+            Interactive HTML mechanism simulations and 3D models submitted by students will appear here once uploaded and approved.
           </p>
           <button
             type="button"
             className="primary-btn"
             onClick={() => onNavigate("submit")}
           >
-            ➕ Submit a Mechanism →
+            ➕ Submit a Mechanism Animation →
           </button>
         </div>
       )}
