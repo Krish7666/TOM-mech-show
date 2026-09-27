@@ -250,6 +250,13 @@ export default function App() {
   // ── Render ──────────────────────────────────────────────────────────────
   return (
     <div className="app-shell">
+      <div className="app-noise" aria-hidden="true" />
+      <div className="app-orbs" aria-hidden="true">
+        <div className="app-orb app-orb--violet" />
+        <div className="app-orb app-orb--gold" />
+        <div className="app-orb app-orb--green" />
+      </div>
+
       {/* ── FIXED TOP NAVIGATION HEADER ── */}
       <header className="site-header">
         <div className="site-header__inner">
@@ -263,52 +270,13 @@ export default function App() {
               <TomLogo size={32} />
             </span>
             <span className="brand-copy">
-              <span className="brand-copy__eyebrow">PCET's NMIET</span>
+              <span className="brand-copy__eyebrow">NMIET</span>
               <strong>Theory of Machines</strong>
             </span>
           </button>
 
-          {/* Desktop Navigation Links */}
-          <nav className="main-nav desktop-only-nav" aria-label="Main Navigation">
-            <button
-              type="button"
-              className={`main-nav__button${page === "home" ? " main-nav__button--active" : ""}`}
-              onClick={() => navigateTo("home")}
-            >
-              Home
-            </button>
-            <button
-              type="button"
-              className={`main-nav__button${page === "vlab" ? " main-nav__button--active" : ""}`}
-              onClick={() => navigateTo("vlab", "#vlab")}
-            >
-              🔬 Virtual Lab
-            </button>
-            <button
-              type="button"
-              className={`main-nav__button${page === "repository" ? " main-nav__button--active" : ""}`}
-              onClick={() => navigateTo("repository")}
-            >
-              📚 Explore Mechanisms
-            </button>
-            <button
-              type="button"
-              className={`main-nav__button${page === "submit" ? " main-nav__button--active" : ""}`}
-              onClick={() => navigateTo("submit")}
-            >
-              ➕ Submit Project
-            </button>
-            <button
-              type="button"
-              className={`main-nav__button${page === "admin" || page === "login" ? " main-nav__button--active" : ""}`}
-              onClick={() => navigateTo(isAdminLoggedIn ? "admin" : "login")}
-            >
-              {isAdminLoggedIn ? "⚡ Admin Dashboard" : "Admin Login"}
-            </button>
-          </nav>
-
           <div className="site-header__actions">
-            {/* Hamburger Menu Toggle for Mobile */}
+            {/* Hamburger Menu Toggle */}
             <button
               type="button"
               className={`nav-menu-toggle${isNavMenuOpen ? " nav-menu-toggle--active" : ""}`}
@@ -329,6 +297,29 @@ export default function App() {
 
       {/* ── APP BODY CONTENT WRAPPER ── */}
       <div className="app-body-content">
+        {/* ── TELEMETRY BAR ── */}
+        <div className="system-telemetry-bar">
+          <div className="telemetry-inner">
+            <div className="telemetry-left">
+              <span className="telemetry-status-dot" />
+              <span className="telemetry-label">SYSTEM ONLINE</span>
+              <span className="telemetry-sep">/</span>
+              <span className="telemetry-cloud">
+                {isSupabaseConfigured ? "🟢 SUPABASE CLOUD ACTIVE" : "🟢 LOCAL SYNC ENGINE ACTIVE"}
+              </span>
+              <span className="telemetry-sep">/</span>
+              <span className="telemetry-item">BUILD: v{APP_VERSION}</span>
+            </div>
+            <div className="telemetry-right">
+              <span className="telemetry-institute">PCET's NMIET · SPPU MECHANICAL ENGINEERING</span>
+              <span className="telemetry-sep">/</span>
+              <span className="telemetry-session">
+                {isAdminLoggedIn ? "⚡ ADMIN SESSION ACTIVE" : "STUDENT ACCESS"}
+              </span>
+            </div>
+          </div>
+        </div>
+
       {/* ── NAV DRAWER ── */}
       {isNavMenuOpen && (
         <div className="nav-drawer-backdrop" onClick={() => setIsNavMenuOpen(false)}>
@@ -430,191 +421,77 @@ export default function App() {
 
         {/* HOME */}
         {page === "home" && (
-          <div className="home-container">
-            {/* HERO SECTION */}
-            <section className="home-hero">
-              <div className="home-hero__badge">
-                <span className="home-hero__dot" />
-                <span>PCET's NMIET · SPPU Department of Mechanical Engineering</span>
-              </div>
+          <>
+            {/* FIXED 3D BACKGROUND */}
+            <div className="hero-3d-bg" style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, zIndex: -1, opacity: 1 }}>
+              <Suspense fallback={<div style={{ height: "100%", display: "flex", alignItems: "center", justifyContent: "center", color: "#38bdf8" }}>Loading Interactive Background...</div>}>
+                <TomLogo3D />
+              </Suspense>
+            </div>
 
-              <h1 className="home-hero__title">
-                Theory of Machines <span>Showcase</span>
-              </h1>
+            <section className="hero-panel" style={{ display: "flex", flexDirection: "column", alignItems: "center", position: "relative", minHeight: "80vh", justifyContent: "center", background: "transparent", border: "none", boxShadow: "none", maxWidth: "100%" }}>
+              
+              <div className="hero-copy-block" style={{ zIndex: 2, position: "relative", marginTop: 0, background: "rgba(3, 7, 18, 0.7)", padding: "2.5rem", borderRadius: "28px", backdropFilter: "blur(16px)", border: "1px solid rgba(255, 255, 255, 0.1)", maxWidth: "100%", width: "100%", overflow: "hidden", boxShadow: "0 12px 40px rgba(0,0,0,0.5)" }}>
+                <div className="hero-badge" style={{ margin: "0 auto 1.5rem auto", background: "rgba(0,0,0,0.4)" }}>
+                  <span className="hero-badge__dot" />
+                  TE Mech · 2025-28 Batch
+                </div>
 
-              <p className="home-hero__subtitle">
-                Interactive kinematic simulations, student mechanical innovations, and planar linkage analysis.
-              </p>
+                <h1 className="hero-title">
+                  Theory of Machines <span>Showcase</span>
+                </h1>
 
-              <p className="home-hero__copy">
-                A dedicated academic portal for the Savitribai Phule Pune University (SPPU) Mechanical Engineering curriculum.
-                Analyze four-bar planar linkages, verify Grashof mobility criteria, and explore student-built physical mechanism models.
-              </p>
+                <p className="hero-subtitle">Motion, linkages, and mechanical design in a refined academic display.</p>
 
-              <div className="home-hero__actions">
-                <button
-                  type="button"
-                  className="primary-btn home-hero__cta-primary"
-                  onClick={() => navigateTo("vlab", "#vlab")}
-                >
-                  🔬 Launch Four-Bar Virtual Lab →
-                </button>
-                <button
-                  type="button"
-                  className="secondary-btn"
-                  onClick={() => navigateTo("repository")}
-                >
-                  📚 Explore Mechanisms ({mechanisms.length})
-                </button>
-                <button
-                  type="button"
-                  className="secondary-btn"
-                  onClick={() => navigateTo("submit")}
-                >
-                  ➕ Submit Project
-                </button>
-              </div>
-            </section>
-
-            {/* CORE MODULES SECTION */}
-            <section className="home-modules-section">
-              <div className="home-section-header">
-                <span className="home-section-tag">Laboratory Portals</span>
-                <h2 className="home-section-title">Explore Theory of Machines Hub</h2>
-                <p className="home-section-desc">
-                  Explore interactive simulation tools, student mechanical projects, and academic resources.
+                <p className="hero-copy">
+                  A polished collection of mechanism studies, student projects, and kinematic models designed to explain
+                  how machines move, transfer force, and solve engineering challenges with clarity.
                 </p>
-              </div>
 
-              <div className="home-modules-grid">
-                {/* PORTAL 1: VIRTUAL LAB */}
-                <div className="home-module-card">
-                  <div className="home-module-card__header">
-                    <span className="home-module-card__icon">🔬</span>
-                    <span className="home-module-card__badge home-module-card__badge--cyan">Simulation Lab</span>
-                  </div>
-                  <h3 className="home-module-card__title">Four-Bar Virtual Lab</h3>
-                  <p className="home-module-card__copy">
-                    Interactive real-time four-bar kinematic simulator. Adjust ground, crank, coupler, and rocker dimensions to observe dynamic continuous or oscillating motion.
-                  </p>
-                  <ul className="home-module-card__features">
-                    <li>✓ Grashof criterion classification ($S+L \le P+Q$)</li>
-                    <li>✓ Real-time transmission angle (&mu;) readout</li>
-                    <li>✓ Continuous coupler curve path tracing at 60 FPS</li>
-                  </ul>
+                <div className="cta-row">
+                  <button type="button" className="primary-btn" onClick={() => setIsNavMenuOpen(true)}>
+                    Explore Menu ☰
+                  </button>
                   <button
                     type="button"
-                    className="primary-btn home-module-card__btn"
+                    className="secondary-btn secondary-btn--cyan"
                     onClick={() => navigateTo("vlab", "#vlab")}
                   >
-                    Open Virtual Lab →
+                    🔬 Four-Bar Virtual Lab
                   </button>
-                </div>
-
-                {/* PORTAL 2: EXPLORE REPOSITORY */}
-                <div className="home-module-card">
-                  <div className="home-module-card__header">
-                    <span className="home-module-card__icon">📚</span>
-                    <span className="home-module-card__badge home-module-card__badge--purple">{mechanisms.length} Models Verified</span>
-                  </div>
-                  <h3 className="home-module-card__title">Explore Mechanisms</h3>
-                  <p className="home-module-card__copy">
-                    Browse the curated library of mechanical mechanisms designed by TE Mechanical students, complete with photo galleries, video demonstrations, and motion specifications.
-                  </p>
-                  <ul className="home-module-card__features">
-                    <li>✓ Linkage pairs, joints, and mobility parameters</li>
-                    <li>✓ Demonstration videos and high-res project photos</li>
-                    <li>✓ Student creator attributions and year batches</li>
-                  </ul>
                   <button
                     type="button"
-                    className="secondary-btn home-module-card__btn"
+                    className="secondary-btn secondary-btn--purple"
                     onClick={() => navigateTo("repository")}
                   >
-                    Browse Mechanism Models →
+                    📚 Explore Mechanisms
                   </button>
-                </div>
-
-                {/* PORTAL 3: STUDENT SUBMISSION */}
-                <div className="home-module-card">
-                  <div className="home-module-card__header">
-                    <span className="home-module-card__icon">➕</span>
-                    <span className="home-module-card__badge home-module-card__badge--emerald">Student Contribution</span>
-                  </div>
-                  <h3 className="home-module-card__title">Submit a Mechanism</h3>
-                  <p className="home-module-card__copy">
-                    Are you a student in the Theory of Machines lab? Document your physical model, upload photos and project reports, and submit it for faculty review.
-                  </p>
-                  <ul className="home-module-card__features">
-                    <li>✓ Structured project submission workflow</li>
-                    <li>✓ Automatic mobility calculation via Grübler's formula</li>
-                    <li>✓ Faculty moderation and showcase publishing</li>
-                  </ul>
                   <button
                     type="button"
-                    className="secondary-btn home-module-card__btn"
+                    className="secondary-btn secondary-btn--emerald"
                     onClick={() => navigateTo("submit")}
                   >
-                    Submit Project Model →
+                    ➕ Add Mechanism
+                  </button>
+                  <button
+                    type="button"
+                    className="secondary-btn secondary-btn--amber"
+                    onClick={() => navigateTo(isAdminLoggedIn ? "admin" : "login")}
+                  >
+                    ⚡ Admin Access
                   </button>
                 </div>
               </div>
             </section>
 
-            {/* MOBILITY & DOF SIMULATOR SECTION */}
-            <section className="home-workbench-section" style={{ marginTop: 40, marginBottom: 40 }}>
-              <div className="home-section-header">
-                <span className="home-section-tag">Interactive Mobility Engine</span>
-                <h2 className="home-section-title">Mechanism Mobility &amp; DOF Calculator</h2>
-                <p className="home-section-desc">
-                  Explore how adjusting links, joints, and higher pairs changes mechanism degrees of freedom.
-                </p>
+            <section className="home-workbench-section" style={{ marginTop: 36 }}>
+              <div className="section-heading-block">
+                <h2>Mechanism Simulator</h2>
+                <p>Interactive tool to explore how adjusting links and joints changes mechanism movement.</p>
               </div>
               <KinematicWorkbench />
             </section>
-
-            {/* CURRICULUM FOUNDATIONS SECTION */}
-            <section className="home-pillars-section">
-              <div className="home-section-header">
-                <span className="home-section-tag">SPPU Mechanical Engineering</span>
-                <h2 className="home-section-title">Core Kinematic Foundations</h2>
-                <p className="home-section-desc">
-                  Rigorous engineering principles implemented directly into our kinematic simulation engines.
-                </p>
-              </div>
-
-              <div className="home-pillars-grid">
-                <div className="home-pillar-card">
-                  <div className="home-pillar-card__icon">⚙️</div>
-                  <h4>Grübler's Mobility Criterion</h4>
-                  <p>
-                    Degree of freedom calculated through <code>F = 3(n - 1) - 2j - h</code> to distinguish between rigid structures, constrained mechanisms (F = 1), and unconstrained chains.
-                  </p>
-                </div>
-                <div className="home-pillar-card">
-                  <div className="home-pillar-card__icon">📐</div>
-                  <h4>Grashof Condition</h4>
-                  <p>
-                    Evaluates link lengths <code>S + L ≤ P + Q</code> to guarantee continuous 360° input crank rotation, classifying linkages into Crank-Rocker, Double-Crank, or Rocker-Rocker.
-                  </p>
-                </div>
-                <div className="home-pillar-card">
-                  <div className="home-pillar-card__icon">🎯</div>
-                  <h4>Transmission Angle (&mu;)</h4>
-                  <p>
-                    Monitors the angle between the coupler and output rocker throughout the full cycle, ensuring optimum torque transfer and preventing dead-center locking.
-                  </p>
-                </div>
-                <div className="home-pillar-card">
-                  <div className="home-pillar-card__icon">🛡️</div>
-                  <h4>Faculty Moderation</h4>
-                  <p>
-                    Every student project submission is reviewed, validated for kinematic accuracy, and approved by NMIET department faculty before public inclusion.
-                  </p>
-                </div>
-              </div>
-            </section>
-          </div>
+          </>
         )}
 
         {/* MENU */}
