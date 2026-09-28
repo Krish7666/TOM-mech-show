@@ -156,7 +156,7 @@ export async function fetchApprovedMechanisms() {
     try {
       let res = await supabase
         .from(MECHANISMS_TABLE)
-        .select("*, tom_mechanism_media(count)")
+        .select("*, tom_mechanism_media(*)")
         .eq("status", MECHANISM_STATUS.APPROVED)
         .order("created_at", { ascending: false });
 
@@ -171,7 +171,18 @@ export async function fetchApprovedMechanisms() {
       if (res.error) {
         error = res.error;
       } else {
-        supabaseList = res.data || [];
+        supabaseList = (res.data || []).map((m) => {
+          const mediaRows = Array.isArray(m.tom_mechanism_media) ? m.tom_mechanism_media : [];
+          const animRow = mediaRows.find((row) => (row.file_type === "animation" || row.format === "html") && row.file_url);
+          const cadRow = mediaRows.find((row) => (row.file_type === "cad" || /\.(stl|gltf|glb|obj)$/i.test(row.file_name || row.file_url || "")) && row.file_url);
+          return {
+            ...m,
+            media: mediaRows,
+            html_animation_url: animRow?.file_url || m.html_animation_url || null,
+            animation_url: animRow?.file_url || m.animation_url || null,
+            cad_model_url: cadRow?.file_url || m.cad_model_url || null,
+          };
+        });
       }
     } catch (e) {
       error = e;
@@ -234,11 +245,25 @@ export async function fetchPendingMechanisms() {
     try {
       const res = await supabase
         .from(MECHANISMS_TABLE)
-        .select("*")
+        .select("*, tom_mechanism_media(*)")
         .eq("status", MECHANISM_STATUS.PENDING)
         .order("created_at", { ascending: true });
-      if (res.error) error = res.error;
-      else supabasePending = res.data || [];
+      if (res.error) {
+        error = res.error;
+      } else {
+        supabasePending = (res.data || []).map((m) => {
+          const mediaRows = Array.isArray(m.tom_mechanism_media) ? m.tom_mechanism_media : [];
+          const animRow = mediaRows.find((row) => (row.file_type === "animation" || row.format === "html") && row.file_url);
+          const cadRow = mediaRows.find((row) => (row.file_type === "cad" || /\.(stl|gltf|glb|obj)$/i.test(row.file_name || row.file_url || "")) && row.file_url);
+          return {
+            ...m,
+            media: mediaRows,
+            html_animation_url: animRow?.file_url || m.html_animation_url || null,
+            animation_url: animRow?.file_url || m.animation_url || null,
+            cad_model_url: cadRow?.file_url || m.cad_model_url || null,
+          };
+        });
+      }
     } catch (e) {
       error = e;
     }
@@ -599,7 +624,10 @@ async function uploadMechanismFile(mechanismId, type, file) {
 
   const safeName = file.name.replace(/[^\w.-]+/g, "_");
   const path = `${mechanismId}/${type}/${Date.now()}-${safeName}`;
-  const contentType = file.type || (/\.(html|htm)$/i.test(file.name) ? "text/html" : undefined);
+  let contentType = file.type;
+  if (/\.(html|htm)$/i.test(file.name) || type === "animation_html" || (type === "animation" && /\.(html|htm)$/i.test(file.name))) {
+    contentType = "text/html";
+  }
   const { error } = await supabase.storage.from(STORAGE_BUCKET).upload(path, file, {
     cacheControl: "3600",
     upsert: false,

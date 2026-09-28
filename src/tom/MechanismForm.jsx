@@ -7,16 +7,20 @@ import {
   tomCategoryMeta,
 } from "./tomConstants";
 import { validateUploadFile } from "./tomApi";
+import HtmlSimulationViewer, { openSimulationInNewTab } from "./HtmlSimulationViewer.jsx";
 
 function isHtmlFormatUrl(rawUrl) {
   if (!rawUrl || typeof rawUrl !== "string") return false;
-  const u = rawUrl.trim().toLowerCase();
+  const trimmed = rawUrl.trim();
+  if (trimmed.startsWith("<!DOCTYPE") || trimmed.startsWith("<html")) return true;
+  if (trimmed.startsWith("data:") || trimmed.startsWith("blob:")) return true;
+  const u = trimmed.toLowerCase();
   return (
     u.endsWith(".html") ||
     u.endsWith(".htm") ||
     u.includes(".html?") ||
     u.includes(".htm?") ||
-    u.startsWith("data:text/html")
+    u.includes("/animations/")
   );
 }
 
@@ -151,7 +155,13 @@ export default function MechanismForm({
     setFiles((cur) => ({ ...cur, animation_html: [file] }));
     const reader = new FileReader();
     reader.onload = (event) => {
-      const dataUrl = event.target.result;
+      let dataUrl = event.target.result;
+      if (typeof dataUrl === "string" && dataUrl.startsWith("data:") && !dataUrl.startsWith("data:text/html")) {
+        const comma = dataUrl.indexOf(",");
+        if (comma !== -1) {
+          dataUrl = "data:text/html;base64," + dataUrl.slice(comma + 1);
+        }
+      }
       setHtmlFilePreview(dataUrl);
       setForm((cur) => ({ ...cur, html_animation_url: dataUrl }));
     };
@@ -1002,15 +1012,14 @@ export default function MechanismForm({
               </div>
             </div>
             {form.html_animation_url && !htmlFilePreview && isHtmlFormatUrl(form.html_animation_url) && (
-              <a
-                href={form.html_animation_url.trim()}
-                target="_blank"
-                rel="noopener noreferrer"
+              <button
+                type="button"
+                onClick={() => openSimulationInNewTab(form.html_animation_url)}
                 className="secondary-btn secondary-btn--small"
-                style={{ textDecoration: "none" }}
+                style={{ textDecoration: "none", cursor: "pointer" }}
               >
                 Test in New Tab ↗
-              </a>
+              </button>
             )}
           </div>
 
@@ -1023,12 +1032,10 @@ export default function MechanismForm({
               border: "1px solid rgba(255, 255, 255, 0.12)",
               background: "#080c16",
             }}>
-              <iframe
-                src={htmlFilePreview || form.html_animation_url.trim()}
+              <HtmlSimulationViewer
+                url={htmlFilePreview || form.html_animation_url.trim()}
                 title="Live HTML Animation Preview"
-                sandbox="allow-scripts allow-same-origin allow-popups allow-forms allow-downloads"
-                style={{ width: "100%", height: "100%", border: 0, display: "block" }}
-                allow="accelerometer; autoplay; encrypted-media; gyroscope"
+                minHeight="360px"
               />
             </div>
           )}

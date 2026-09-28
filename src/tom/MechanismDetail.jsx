@@ -1,12 +1,18 @@
 import { useEffect, useMemo, useState, useRef, lazy, Suspense } from "react";
 import { tomCategoryMeta } from "./tomConstants";
 import { fetchMechanismDetail, deleteMechanism, deleteMechanismMedia, approveMechanism, rejectMechanism } from "./tomApi";
+import HtmlSimulationViewer, { openSimulationInNewTab } from "./HtmlSimulationViewer.jsx";
 
 const Mechanism3DViewer = lazy(() => import("./Mechanism3DViewer.jsx"));
 
 const TABS = ["Overview", "Animation", "Images", "Videos", "CAD / 3D", "Documents"];
 
-function tabForType(type) {
+function tabForType(type, fileName = "", fileUrl = "") {
+  const fn = (fileName || "").toLowerCase();
+  const fu = (fileUrl || "").toLowerCase();
+  if (fn.endsWith(".html") || fn.endsWith(".htm") || fu.includes(".html") || fu.includes(".htm") || fu.startsWith("data:text/html")) {
+    return "Animation";
+  }
   if (type === "image" || type === "drawing") return "Images";
   if (type === "video") return "Videos";
   if (type === "animation") return "Animation";
@@ -56,14 +62,15 @@ function isSafeUrl(rawUrl) {
   if (!rawUrl || typeof rawUrl !== "string") return false;
   const trimmed = rawUrl.trim();
   if (trimmed.startsWith("javascript:") || trimmed.startsWith("vbscript:")) return false;
-  if (trimmed.startsWith("data:text/html") || trimmed.startsWith("data:image/") || trimmed.startsWith("blob:")) return true;
+  if (trimmed.startsWith("data:") || trimmed.startsWith("blob:")) return true;
+  if (trimmed.startsWith("<!DOCTYPE") || trimmed.startsWith("<html")) return true;
   try {
     const parsed = new URL(trimmed, typeof window !== "undefined" ? window.location.href : "https://localhost");
     return (
       parsed.protocol === "https:" ||
       parsed.protocol === "http:" ||
       parsed.protocol === "blob:" ||
-      (parsed.protocol === "data:" && (trimmed.startsWith("data:text/html") || trimmed.startsWith("data:image/")))
+      parsed.protocol === "data:"
     );
   } catch {
     return false;
@@ -73,7 +80,8 @@ function isSafeUrl(rawUrl) {
 function isHtmlAnimationUrl(rawUrl) {
   if (!rawUrl || typeof rawUrl !== "string") return false;
   const trimmed = rawUrl.trim();
-  if (trimmed.startsWith("data:text/html") || trimmed.startsWith("blob:")) return true;
+  if (trimmed.startsWith("data:") || trimmed.startsWith("blob:")) return true;
+  if (trimmed.startsWith("<!DOCTYPE") || trimmed.startsWith("<html")) return true;
   if (!isSafeUrl(trimmed)) return false;
   const u = trimmed.toLowerCase();
   return (
@@ -86,28 +94,6 @@ function isHtmlAnimationUrl(rawUrl) {
     u.includes("simulator") ||
     u.includes("vlab")
   );
-}
-
-function openHtmlInNewTab(url) {
-  if (!url) return;
-  const trimmed = url.trim();
-  if (trimmed.startsWith("data:text/html")) {
-    try {
-      const commaIdx = trimmed.indexOf(",");
-      if (commaIdx !== -1) {
-        const meta = trimmed.slice(0, commaIdx);
-        const raw = trimmed.slice(commaIdx + 1);
-        const html = meta.includes(";base64") ? atob(raw) : decodeURIComponent(raw);
-        const blob = new Blob([html], { type: "text/html" });
-        const blobUrl = URL.createObjectURL(blob);
-        window.open(blobUrl, "_blank", "noopener,noreferrer");
-        return;
-      }
-    } catch (e) {
-      console.error("Failed to open data URL in new tab:", e);
-    }
-  }
-  window.open(trimmed, "_blank", "noopener,noreferrer");
 }
 
 export default function MechanismDetail({ id, isAdmin, onBack, onChanged }) {
@@ -166,7 +152,7 @@ export default function MechanismDetail({ id, isAdmin, onBack, onChanged }) {
   const mediaByTab = useMemo(() => {
     const groups = { Images: [], Videos: [], Animation: [], "CAD / 3D": [], Documents: [] };
     media.forEach((m) => {
-      const tab = tabForType(m.file_type);
+      const tab = tabForType(m.file_type, m.file_name, m.file_url);
       if (groups[tab]) groups[tab].push(m);
     });
 
@@ -455,63 +441,109 @@ export default function MechanismDetail({ id, isAdmin, onBack, onChanged }) {
         )}
       </div>
 
-      <h2 className="tom-detail__section-title">Mechanism Specifications</h2>
-      <div className="tom-spec-grid">
-        <SpecCard label="Links" value={mechanism.num_links || 4} />
-        <SpecCard label="Joints" value={mechanism.num_joints || 4} />
-        <SpecCard label="Degrees of Freedom" value={`${mechanism.degrees_of_freedom ?? 1} DOF`} />
-        {mechanism.kinematic_pairs && <SpecCard label="Joint Type" value={mechanism.kinematic_pairs} />}
-        {mechanism.input_link && <SpecCard label="Driver Link" value={mechanism.input_link} />}
-        {mechanism.output_link && <SpecCard label="Output Link" value={mechanism.output_link} />}
-      </div>
-      {(() => {
-        const rawNotes = mechanism.additional_technical_details;
-        let cleanNotes = "";
-        if (typeof rawNotes === "string" && !rawNotes.trim().startsWith("{")) {
-          cleanNotes = rawNotes.trim();
-        }
-        if (!cleanNotes || cleanNotes.startsWith("data:") || cleanNotes.includes("base64,")) return null;
-        return <p className="tom-detail__extra-tech">{cleanNotes}</p>;
-      })()}
-
-      {downloadableMedia.length > 0 && (
+      {/* Sections beneath the panel are displayed strictly on Overview tab to keep Animation and Media views completely clean */}
+      {activeTab === "Overview" && (
         <>
-          <h2 className="tom-detail__section-title">Resources &amp; Attachments</h2>
-          <div className="tom-resource-list">
-            {downloadableMedia.map((row) => (
-              <ResourceRow key={row.id} row={row} isAdmin={isAdmin} onDelete={handleDeleteMedia} />
-            ))}
+          <h2 className="tom-detail__section-title">Mechanism Specifications</h2>
+          <div className="tom-spec-grid">
+            <SpecCard label="Links" value={mechanism.num_links || 4} />
+            <SpecCard label="Joints" value={mechanism.num_joints || 4} />
+            <SpecCard label="Degrees of Freedom" value={`${mechanism.degrees_of_freedom ?? 1} DOF`} />
+            {mechanism.kinematic_pairs && <SpecCard label="Joint Type" value={mechanism.kinematic_pairs} />}
+            {mechanism.input_link && <SpecCard label="Driver Link" value={mechanism.input_link} />}
+            {mechanism.output_link && <SpecCard label="Output Link" value={mechanism.output_link} />}
+          </div>
+          {(() => {
+            const rawNotes = mechanism.additional_technical_details;
+            let cleanNotes = "";
+            if (typeof rawNotes === "string" && !rawNotes.trim().startsWith("{")) {
+              cleanNotes = rawNotes.trim();
+            }
+            if (
+              !cleanNotes ||
+              cleanNotes.startsWith("data:") ||
+              cleanNotes.includes("base64,") ||
+              cleanNotes.includes("<!DOCTYPE") ||
+              cleanNotes.includes("<html") ||
+              cleanNotes.includes("<script")
+            ) {
+              return null;
+            }
+            return <p className="tom-detail__extra-tech">{cleanNotes}</p>;
+          })()}
+
+          {downloadableMedia.length > 0 && (
+            <>
+              <h2 className="tom-detail__section-title">Resources &amp; Attachments</h2>
+              <div className="tom-resource-list">
+                {downloadableMedia.map((row) => (
+                  <ResourceRow key={row.id} row={row} isAdmin={isAdmin} onDelete={handleDeleteMedia} />
+                ))}
+              </div>
+            </>
+          )}
+
+          {Array.isArray(mechanism.external_links) &&
+            mechanism.external_links.filter((url) => {
+              if (!url || typeof url !== "string" || !isSafeUrl(url)) return false;
+              const u = url.trim().toLowerCase();
+              if (u.startsWith("data:") || u.startsWith("blob:") || u.includes("base64") || !u.startsWith("http")) return false;
+              if (
+                u.endsWith(".html") ||
+                u.endsWith(".htm") ||
+                u.includes(".html?") ||
+                u.includes(".htm?") ||
+                u.includes("/animation_html/") ||
+                u.includes("/animations/") ||
+                u.includes("storage/v1/object")
+              ) {
+                return false;
+              }
+              return true;
+            }).length > 0 && (
+            <>
+              <h2 className="tom-detail__section-title">External Links</h2>
+              <ul className="tom-external-links">
+                {mechanism.external_links
+                  .filter((url) => {
+                    if (!url || typeof url !== "string" || !isSafeUrl(url)) return false;
+                    const u = url.trim().toLowerCase();
+                    if (u.startsWith("data:") || u.startsWith("blob:") || u.includes("base64") || !u.startsWith("http")) return false;
+                    if (
+                      u.endsWith(".html") ||
+                      u.endsWith(".htm") ||
+                      u.includes(".html?") ||
+                      u.includes(".htm?") ||
+                      u.includes("/animation_html/") ||
+                      u.includes("/animations/") ||
+                      u.includes("storage/v1/object")
+                    ) {
+                      return false;
+                    }
+                    return true;
+                  })
+                  .map((url) => (
+                    <li key={url}><a href={url} target="_blank" rel="noopener noreferrer">{url}</a></li>
+                  ))}
+              </ul>
+            </>
+          )}
+
+          <h2 className="tom-detail__section-title">Team / Contributor</h2>
+          <div className="tom-team-card">
+            <div className="author-row__avatar">{(mechanism.student_name || "?").charAt(0).toUpperCase()}</div>
+            <div>
+              <p className="tom-team-card__name">{mechanism.student_name || "Unknown"}</p>
+              {mechanism.team_members && mechanism.team_members !== mechanism.student_name && (
+                <p className="tom-team-card__members">Team: {mechanism.team_members}</p>
+              )}
+              <p className="tom-team-card__meta">
+                {[mechanism.department || "Mechanical Engineering", mechanism.college || "NMIET", mechanism.academic_year].filter(Boolean).join(" · ")}
+              </p>
+            </div>
           </div>
         </>
       )}
-
-      {Array.isArray(mechanism.external_links) &&
-        mechanism.external_links.filter((url) => typeof url === "string" && isSafeUrl(url) && !url.trim().startsWith("data:")).length > 0 && (
-        <>
-          <h2 className="tom-detail__section-title">External Links</h2>
-          <ul className="tom-external-links">
-            {mechanism.external_links
-              .filter((url) => typeof url === "string" && isSafeUrl(url) && !url.trim().startsWith("data:"))
-              .map((url) => (
-                <li key={url}><a href={url} target="_blank" rel="noopener noreferrer">{url}</a></li>
-              ))}
-          </ul>
-        </>
-      )}
-
-      <h2 className="tom-detail__section-title">Team / Contributor</h2>
-      <div className="tom-team-card">
-        <div className="author-row__avatar">{(mechanism.student_name || "?").charAt(0).toUpperCase()}</div>
-        <div>
-          <p className="tom-team-card__name">{mechanism.student_name || "Unknown"}</p>
-          {mechanism.team_members && mechanism.team_members !== mechanism.student_name && (
-            <p className="tom-team-card__members">Team: {mechanism.team_members}</p>
-          )}
-          <p className="tom-team-card__meta">
-            {[mechanism.department || "Mechanical Engineering", mechanism.college || "NMIET", mechanism.academic_year].filter(Boolean).join(" · ")}
-          </p>
-        </div>
-      </div>
     </section>
   );
 }
@@ -679,7 +711,7 @@ function StudentCustomAnimationViewer({ htmlUrl, mechanism, onReload, reloadKey 
                 gap: 4,
                 cursor: "pointer",
               }}
-              onClick={() => openHtmlInNewTab(htmlUrl)}
+              onClick={() => openSimulationInNewTab(htmlUrl)}
               title="Open simulation in a new browser tab"
             >
               Open in Tab ↗
@@ -702,13 +734,12 @@ function StudentCustomAnimationViewer({ htmlUrl, mechanism, onReload, reloadKey 
         }}
       >
         {hasCustomHtml ? (
-          <iframe
-            key={reloadKey}
-            src={htmlUrl}
+          <HtmlSimulationViewer
+            url={htmlUrl}
             title={`${mechanism?.name || "Mechanism"} Student Custom Animation`}
-            sandbox="allow-scripts allow-popups allow-forms allow-same-origin"
-            style={{ width: "100%", height: "100%", border: 0, display: "block", flex: 1 }}
-            allow="accelerometer; autoplay; encrypted-media; gyroscope"
+            reloadKey={reloadKey}
+            isFullscreen={isFullscreen}
+            minHeight={isFullscreen ? "calc(100vh - 58px)" : "460px"}
           />
         ) : (
           <div
@@ -726,10 +757,10 @@ function StudentCustomAnimationViewer({ htmlUrl, mechanism, onReload, reloadKey 
           >
             <span style={{ fontSize: "2.8rem", marginBottom: 12 }}>🌀</span>
             <h4 style={{ margin: "0 0 8px", color: "#f8fafc", fontSize: "1.05rem" }}>
-              No HTML Animation Uploaded Yet
+              No Simulation Uploaded Yet
             </h4>
             <p style={{ margin: "0 0 18px", color: "#94a3b8", fontSize: "0.85rem", maxWidth: 360, lineHeight: 1.5 }}>
-              The student has not uploaded an interactive HTML animation file for this mechanism yet.
+              The student has not uploaded an interactive simulation file for this mechanism yet.
             </p>
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "center" }}>
               <button
@@ -910,13 +941,10 @@ function MediaPanel({ items, tab, isAdmin, onDelete, mechanism, htmlAnimationUrl
   const [animReloadKey, setAnimReloadKey] = useState(0);
 
   if (tab === "Animation") {
-    // Only genuine uploaded animation files are shown here. Videos are never shown in Animation tab.
-    const nonHtmlAnimationItems = items.filter((row) => row.file_url !== htmlAnimationUrl && row.file_type === "animation");
-
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
         {/* Full-width Student Uploaded HTML Animation */}
-        {htmlAnimationUrl && (
+        {htmlAnimationUrl ? (
           <div style={{ width: "100%", display: "flex", flexDirection: "column" }}>
             <StudentCustomAnimationViewer
               htmlUrl={htmlAnimationUrl}
@@ -925,33 +953,9 @@ function MediaPanel({ items, tab, isAdmin, onDelete, mechanism, htmlAnimationUrl
               onReload={() => setAnimReloadKey((k) => k + 1)}
             />
           </div>
-        )}
-
-        {/* Other genuine uploaded animations (e.g. GIF) */}
-        {nonHtmlAnimationItems.length > 0 && (
-          <div className="tom-media-gallery" style={{ marginTop: 12 }}>
-            {nonHtmlAnimationItems.map((row) => (
-              <div key={row.id} className="tom-media-item">
-                {/\.(gif)($|\?)/i.test(row.file_url) ? (
-                  <img className="tom-media-item__image" src={row.file_url} alt={row.file_name} />
-                ) : (
-                  <iframe
-                    src={row.file_url}
-                    title={row.file_name}
-                    sandbox="allow-scripts allow-popups allow-forms allow-same-origin"
-                    style={{ width: "100%", height: 420, border: 0, borderRadius: 12 }}
-                  />
-                )}
-                <div className="tom-media-item__caption">
-                  <span>{row.file_name}</span>
-                  {isAdmin && (
-                    <button type="button" className="icon-button icon-button--danger" onClick={() => onDelete(row)} aria-label="Remove file">
-                      🗑
-                    </button>
-                  )}
-                </div>
-              </div>
-            ))}
+        ) : (
+          <div className="tom-overview__empty" style={{ padding: "48px 24px", textAlign: "center" }}>
+            No interactive animation uploaded for this mechanism yet.
           </div>
         )}
       </div>

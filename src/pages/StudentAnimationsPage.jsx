@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useRef, lazy, Suspense } from "react";
 import { useMechanisms } from "../context/MechanismsContext.jsx";
 import { tomCategoryMeta } from "../tom/tomConstants.js";
+import HtmlSimulationViewer, { openSimulationInNewTab } from "../tom/HtmlSimulationViewer.jsx";
 
 const Mechanism3DViewer = lazy(() => import("../tom/Mechanism3DViewer.jsx"));
 
@@ -8,40 +9,19 @@ function isSafeUrl(rawUrl) {
   if (!rawUrl || typeof rawUrl !== "string") return false;
   const trimmed = rawUrl.trim();
   if (trimmed.startsWith("javascript:") || trimmed.startsWith("vbscript:")) return false;
-  if (trimmed.startsWith("data:text/html") || trimmed.startsWith("data:image/") || trimmed.startsWith("blob:")) return true;
+  if (trimmed.startsWith("data:") || trimmed.startsWith("blob:")) return true;
+  if (trimmed.startsWith("<!DOCTYPE") || trimmed.startsWith("<html")) return true;
   try {
     const parsed = new URL(trimmed, typeof window !== "undefined" ? window.location.href : "https://localhost");
     return (
       parsed.protocol === "https:" ||
       parsed.protocol === "http:" ||
       parsed.protocol === "blob:" ||
-      (parsed.protocol === "data:" && (trimmed.startsWith("data:text/html") || trimmed.startsWith("data:image/")))
+      parsed.protocol === "data:"
     );
   } catch {
     return false;
   }
-}
-
-function openHtmlInNewTab(url) {
-  if (!url) return;
-  const trimmed = url.trim();
-  if (trimmed.startsWith("data:text/html")) {
-    try {
-      const commaIdx = trimmed.indexOf(",");
-      if (commaIdx !== -1) {
-        const meta = trimmed.slice(0, commaIdx);
-        const raw = trimmed.slice(commaIdx + 1);
-        const html = meta.includes(";base64") ? atob(raw) : decodeURIComponent(raw);
-        const blob = new Blob([html], { type: "text/html" });
-        const blobUrl = URL.createObjectURL(blob);
-        window.open(blobUrl, "_blank", "noopener,noreferrer");
-        return;
-      }
-    } catch (e) {
-      console.error("Failed to open data URL in new tab:", e);
-    }
-  }
-  window.open(trimmed, "_blank", "noopener,noreferrer");
 }
 
 /**
@@ -390,7 +370,7 @@ export default function StudentAnimationsPage({ onNavigate, initialMechanismId }
                     }}
                     onClick={() => setActiveMediaMode("html")}
                   >
-                    🌐 HTML Animation
+                    🌐 Motion Simulation
                   </button>
                   <button
                     type="button"
@@ -461,7 +441,7 @@ export default function StudentAnimationsPage({ onNavigate, initialMechanismId }
                 </span>
                 <strong style={{ color: "#f8fafc", fontSize: "0.9rem" }}>
                   {currentMode === "html"
-                    ? "Student HTML Animation"
+                    ? "Student Mechanism Simulation"
                     : currentMode === "cad"
                     ? "Student 3D CAD Model"
                     : "Student Media Viewer"}
@@ -510,7 +490,7 @@ export default function StudentAnimationsPage({ onNavigate, initialMechanismId }
                     type="button"
                     className="primary-btn"
                     style={{ padding: "4px 12px", fontSize: "0.75rem" }}
-                    onClick={() => openHtmlInNewTab(htmlUrl)}
+                    onClick={() => openSimulationInNewTab(htmlUrl)}
                     title="Open simulation in a new browser tab"
                   >
                     Open in Tab ↗
@@ -532,20 +512,12 @@ export default function StudentAnimationsPage({ onNavigate, initialMechanismId }
               }}
             >
               {currentMode === "html" && htmlUrl ? (
-                <iframe
-                  key={reloadKey}
-                  src={htmlUrl}
+                <HtmlSimulationViewer
+                  url={htmlUrl}
                   title={`${activeMechanism.name} Student Animation`}
-                  sandbox="allow-scripts allow-popups allow-forms allow-same-origin"
-                  style={{
-                    width: "100%",
-                    height: "100%",
-                    flex: 1,
-                    minHeight: isFullscreen ? "calc(100vh - 54px)" : "580px",
-                    border: 0,
-                    display: "block",
-                  }}
-                  allow="accelerometer; autoplay; encrypted-media; gyroscope"
+                  reloadKey={reloadKey}
+                  isFullscreen={isFullscreen}
+                  minHeight={isFullscreen ? "calc(100vh - 54px)" : "580px"}
                 />
               ) : currentMode === "cad" && cadUrl ? (
                 <div style={{ width: "100%", height: "100%", flex: 1, minHeight: "580px" }}>
@@ -584,7 +556,7 @@ export default function StudentAnimationsPage({ onNavigate, initialMechanismId }
                 >
                   <span style={{ fontSize: "3rem", marginBottom: 16 }}>📁</span>
                   <h3 style={{ color: "#f8fafc", margin: "0 0 8px", fontSize: "1.2rem" }}>
-                    No HTML Animation or CAD Model Uploaded Yet
+                    No Simulation or CAD Model Uploaded Yet
                   </h3>
                   <p
                     style={{
@@ -595,7 +567,7 @@ export default function StudentAnimationsPage({ onNavigate, initialMechanismId }
                       margin: "0 0 20px",
                     }}
                   >
-                    {activeMechanism.student_name || "The student"} has not attached an interactive <code>.html</code> file or 3D CAD model (<code>.stl</code>, <code>.gltf</code>) to this project yet.
+                    {activeMechanism.student_name || "The student"} has not attached an interactive simulation file or 3D CAD model to this project yet.
                   </p>
                   <button
                     type="button"
@@ -609,63 +581,6 @@ export default function StudentAnimationsPage({ onNavigate, initialMechanismId }
               )}
             </div>
           </div>
-
-          {/* Clean Student Notes & Working Principle (No Clingy Calculators) */}
-          {(activeMechanism.working_principle || activeMechanism.detailed_description || activeMechanism.applications) && (
-            <div
-              style={{
-                padding: "24px 28px",
-                background: "rgba(11, 16, 28, 0.75)",
-                border: "1px solid rgba(255, 255, 255, 0.08)",
-                borderRadius: "18px",
-                display: "flex",
-                flexDirection: "column",
-                gap: 16,
-              }}
-            >
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
-                <h3 style={{ margin: 0, fontSize: "1.1rem", color: "#f8fafc" }}>
-                  Student Project Notes
-                </h3>
-                <span style={{ fontSize: "0.8rem", color: "var(--muted, #94a3b8)" }}>
-                  {[activeMechanism.department || "Mechanical Engineering", activeMechanism.college || "NMIET", activeMechanism.academic_year].filter(Boolean).join(" · ")}
-                </span>
-              </div>
-
-              {activeMechanism.working_principle && (
-                <div>
-                  <h4 style={{ margin: "0 0 6px", fontSize: "0.88rem", color: "#38bdf8", textTransform: "uppercase", letterSpacing: "0.04em" }}>
-                    Working Principle
-                  </h4>
-                  <p style={{ margin: 0, fontSize: "0.9rem", color: "var(--text, #e2e8f0)", lineHeight: 1.6 }}>
-                    {activeMechanism.working_principle}
-                  </p>
-                </div>
-              )}
-
-              {activeMechanism.detailed_description && activeMechanism.detailed_description !== activeMechanism.working_principle && (
-                <div>
-                  <h4 style={{ margin: "0 0 6px", fontSize: "0.88rem", color: "#38bdf8", textTransform: "uppercase", letterSpacing: "0.04em" }}>
-                    Description
-                  </h4>
-                  <p style={{ margin: 0, fontSize: "0.9rem", color: "var(--text, #e2e8f0)", lineHeight: 1.6 }}>
-                    {activeMechanism.detailed_description}
-                  </p>
-                </div>
-              )}
-
-              {activeMechanism.applications && (
-                <div>
-                  <h4 style={{ margin: "0 0 6px", fontSize: "0.88rem", color: "#38bdf8", textTransform: "uppercase", letterSpacing: "0.04em" }}>
-                    Real-World Applications
-                  </h4>
-                  <p style={{ margin: 0, fontSize: "0.9rem", color: "var(--text, #e2e8f0)", lineHeight: 1.6 }}>
-                    {activeMechanism.applications}
-                  </p>
-                </div>
-              )}
-            </div>
-          )}
         </div>
       )}
     </div>
